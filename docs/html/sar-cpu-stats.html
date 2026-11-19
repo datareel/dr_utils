@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sar CPU statistics - dr_utils 1.4</title>
+<link rel="stylesheet" href="dr_utils.css">
+</head>
+<body>
+<div class="wrap">
+<nav>
+<p class="title"><a href="index.html">dr_utils 1.4</a></p>
+<input id="q" type="search" placeholder="Search the docs ( / )" aria-label="Search the docs">
+<button id="menu-btn" type="button">Pages</button>
+<ul>
+<li><a href="index.html">Overview</a></li>
+<li><a href="install.html">Building and installing</a></li>
+<li><a href="file-tools.html">File tools</a></li>
+<li><a href="network-tools.html">Network tools</a></li>
+<li><a href="benchmarks.html">Benchmarks</a></li>
+<li><a href="sar-cpu-stats.html" class="cur">sar CPU statistics</a></li>
+<li><a href="plots-and-reports.html">Plots, reports, watch scripts</a></li>
+<li><a href="dashboard-hooks.html">Dashboard hooks</a></li>
+<li><a href="hooks.html">Hook files reference</a></li>
+<li><a href="quick-reference.html">Quick reference</a></li>
+</ul>
+<div class="theme"><button id="theme-btn" type="button">Light / dark</button></div>
+</nav>
+<main>
+<div id="results"></div>
+<div id="content">
+<h1 id="sar_cpu_stats">sar_cpu_stats</h1>
+<p>Reads sar text reports and prints CPU use: averages and peaks, steal and iowait spikes, gaps in the data and impossible samples. With <code>--csv</code> it writes every sample for plotting. It is based on work from the 2018 system_stats_analysis_tool <code>read_cpu_stats</code>.</p>
+<pre><code>sar_cpu_stats [args] sar_file [sar_file ...]
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--csv</code></td>
+<td>write every sample as CSV instead of the summary</td>
+</tr>
+<tr>
+<td><code>--all-cpus</code></td>
+<td>with <code>--csv</code>: rows for each CPU too, not only <code>all</code></td>
+</tr>
+<tr>
+<td><code>--steal=PCT</code></td>
+<td>steal spike threshold (default 10)</td>
+</tr>
+<tr>
+<td><code>--iowait=PCT</code></td>
+<td>iowait spike threshold (default 20)</td>
+</tr>
+<tr>
+<td><code>--list=N</code></td>
+<td>spikes, gaps and bad samples listed per file (default 20)</td>
+</tr>
+<tr>
+<td><code>--alarm</code></td>
+<td>exit status 3 when there are spikes, gaps or bad samples</td>
+</tr>
+<tr>
+<td><code>--help</code>, <code>--version</code></td>
+<td>usage, version</td>
+</tr>
+<tr>
+<td><code>--drsm</code>, <code>--submit</code>, <code>--now</code>, <code>--drra</code>, <code>--drra-config</code></td>
+<td>dashboard output, see <a href="dashboard-hooks.html">Dashboard</a></td>
+</tr>
+</tbody>
+</table>
+<p>Exit status: 0; 1 on an error or no CPU samples; 3 with <code>--alarm</code> when something was found.</p>
+<h2 id="input">Input</h2>
+<p>sar text reports from sysstat on RHEL 5 to RHEL 10 (and other distributions): one day or many days in a file, 12- or 24-hour times, <code>%user</code> or <code>%usr</code>, with or without the newer columns (<code>%steal</code>, <code>%irq</code>, <code>%soft</code>, <code>%guest</code>, <code>%gnice</code>). Make one with:</p>
+<pre><code>LC_ALL=C sar -u -f /var/log/sa/sa19 &gt; sar_19.txt          # all CPUs, one day
+LC_ALL=C sar -P ALL -f /var/log/sa/sa19 &gt; sar_19_cpus.txt # each CPU too
+LC_ALL=C sar -A -f /var/log/sa/sa19 &gt; sar_19_all.txt      # a whole report; only the CPU part is read
+</code></pre>
+<p>(On Debian and Ubuntu the files are in <code>/var/log/sysstat/</code>.) <code>LC_ALL=C</code> gives the dates and times the tool reads.</p>
+<p>The reports are plain text, so the Windows build reads reports copied from Linux hosts the same way.</p>
+<h2 id="summary-output">Summary output</h2>
+<p>For the <code>all</code> CPU rows of each file:</p>
+<ul>
+<li>the average and peak of user, nice, system, iowait, steal, irq, soft, guest, gnice, and the lowest idle, with the peak times;</li>
+<li>steal and iowait spikes over the thresholds;</li>
+<li>gaps: a missing run of samples inside a day, or a day whose samples stop early while later days follow (a host or VM that stopped writing);</li>
+<li>bad samples: a percent over 100, or parts that do not add up to about 100. A VM the hypervisor stopped can write a steal of 241%. Bad samples are listed and left out of the averages.</li>
+</ul>
+<pre><code>Reading sar_steal_spike.txt
+  bad sample at 2018-09-24 00:00:00: steal 241.45, iowait 23.50, the parts add up to 438.4%
+  gap: samples stop at 2018-09-24 00:10:01
+Host: node1.example.com, kernel 2.6.32-696.28.1.el6.x86_64
+Days: 2 (2018-09-24 to 2018-09-25), 2 samples of all CPUs, every 10 minutes
+           average     peak  peak time
+  user        5.96     6.61  2018-09-24 00:10:01
+  system      8.46     9.93  2018-09-24 00:10:01
+  iowait     17.19    18.80  2018-09-24 00:10:01
+  steal       0.00     0.00  -
+  idle       67.84    64.00  2018-09-24 00:10:01 (lowest)
+Steal &gt;= 10.0%: 0, iowait &gt;= 20.0%: 0, gaps: 1, bad samples: 2
+</code></pre>
+<p>(Some rows are left out above.)</p>
+<h2 id="csv-output">CSV output</h2>
+<p>Columns: <code>host,time,cpu,user,nice,system,iowait,steal,irq,soft,guest,gnice,idle,sample</code>. A column the report does not have is empty. <code>sample</code> is <code>ok</code> or <code>bad</code>.</p>
+<pre><code>host,time,cpu,user,nice,system,iowait,steal,irq,soft,guest,gnice,idle,sample
+node1.example.com,2026-11-19 04:10:24,all,17.02,11.14,4.01,19.40,0.00,,,,,48.44,ok
+</code></pre>
+<p><code>dr_plot.py</code> and <code>dr_report.py</code> plot this CSV (see <a href="plots-and-reports.html">Plots and reports</a>).</p>
+<h2 id="examples">Examples</h2>
+<p>Linux:</p>
+<pre><code>LC_ALL=C sar -u -f /var/log/sa/sa$(date -d yesterday +%d) &gt; sar_yesterday.txt
+sar_cpu_stats sar_yesterday.txt
+sar_cpu_stats --steal=5 --iowait=30 --list=50 sar_*.txt
+sar_cpu_stats --csv sar_yesterday.txt &gt; cpu.csv &amp;&amp; dr_plot.py -o cpu.png cpu.csv
+sar_cpu_stats --csv --all-cpus sar_19_cpus.txt &gt; cpus.csv &amp;&amp; dr_plot.py --cpu 3 -o cpu3.png cpus.csv
+</code></pre>
+<p>A cron check that mails only when something is wrong:</p>
+<pre><code>30 0 * * * root f=/tmp/sar_$$.txt; LC_ALL=C sar -u -f /var/log/sa/sa$(date -d yesterday +\%d) &gt; $f; /usr/local/bin/sar_cpu_stats --alarm $f &gt; $f.out || mail -s &quot;sar CPU alarm&quot; ops@example.com &lt; $f.out; rm -f $f $f.out
+</code></pre>
+<p>(To send the result to the dashboard every day instead, use the ready-made job in <a href="dashboard-hooks.html#daily-sar-cpu-use-linux">Dashboard</a>.)</p>
+<p>Windows, with reports copied from Linux hosts:</p>
+<pre><code>sar_cpu_stats C:\reports\sar\node1_*.txt
+sar_cpu_stats --csv C:\reports\sar\node1_19.txt &gt; node1.csv
+py C:\src\dr_utils\benchmarks\plot\dr_plot.py -o node1.png node1.csv
+sar_cpu_stats --alarm C:\reports\sar\*.txt
+if %ERRORLEVEL%==3 echo spikes, gaps or bad samples found
+</code></pre>
+<p>Short example reports are in <code>tests/data/sar/</code> (RHEL 5, RHEL 7 with AM/PM times, RHEL 10, a gap, a steal spike).</p>
+<p class="foot">dr_utils 1.4 documentation, GNU LGPL 3 or later. Made from docs/sar-cpu-stats.md by docs/make_html.py.</p>
+</div>
+</main>
+</div>
+<script src="search_index.js"></script>
+<script src="dr_utils.js"></script>
+</body>
+</html>

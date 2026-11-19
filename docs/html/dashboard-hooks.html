@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard hooks - dr_utils 1.4</title>
+<link rel="stylesheet" href="dr_utils.css">
+</head>
+<body>
+<div class="wrap">
+<nav>
+<p class="title"><a href="index.html">dr_utils 1.4</a></p>
+<input id="q" type="search" placeholder="Search the docs ( / )" aria-label="Search the docs">
+<button id="menu-btn" type="button">Pages</button>
+<ul>
+<li><a href="index.html">Overview</a></li>
+<li><a href="install.html">Building and installing</a></li>
+<li><a href="file-tools.html">File tools</a></li>
+<li><a href="network-tools.html">Network tools</a></li>
+<li><a href="benchmarks.html">Benchmarks</a></li>
+<li><a href="sar-cpu-stats.html">sar CPU statistics</a></li>
+<li><a href="plots-and-reports.html">Plots, reports, watch scripts</a></li>
+<li><a href="dashboard-hooks.html" class="cur">Dashboard hooks</a></li>
+<li><a href="hooks.html">Hook files reference</a></li>
+<li><a href="quick-reference.html">Quick reference</a></li>
+</ul>
+<div class="theme"><button id="theme-btn" type="button">Light / dark</button></div>
+</nav>
+<main>
+<div id="results"></div>
+<div id="content">
+<h1 id="dashboard-reporting-agent-hooks">Dashboard: reporting agent hooks</h1>
+<p>The benchmarks, <code>sar_cpu_stats</code> and <code>dr_report.py</code> can send their results to the DataReel System Monitor (DRSM) dashboard through the DataReel Reporting Agent for Linux (1.0-beta2 and later) or Windows (3.3-beta2 and later). They use the agents' <strong>hook uploads</strong>:</p>
+<ol>
+<li>The program writes its results as DRSM lines (or, for <code>dr_report.py</code>, the HTML report).</li>
+<li>It hands the file to the agent: <code>drra submit --hook &lt;id&gt; file</code> on Linux, <code>drra_svc.exe submit --hook &lt;id&gt; file</code> on Windows.</li>
+<li>The agent sends it, signed, to <code>hook.php</code> on the report server, with its next report or, with <code>--now</code>, within seconds.</li>
+<li>A DRSM upload plugin (a manifest from <code>hooks/drsm/uploads/</code>) shows it on the host's page, with alert rules and trends.</li>
+</ol>
+<p>Nothing in the agents or in DRSM changes; dr_utils only adds the hook files for them. The reference for the files is <a href="hooks.html">hooks/README.md</a>.</p>
+<h2 id="options">Options</h2>
+<p>Every benchmark except the three servers (<code>tcpserv</code>, <code>udpserv</code>, <code>mcserv</code>), and <code>sar_cpu_stats</code>, take:</p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--drsm=fname</code></td>
+<td>write the DRSM lines to a file (to look at them, or to send later by hand)</td>
+</tr>
+<tr>
+<td><code>--submit[=ID]</code></td>
+<td>hand the results to the agent, upload hook ID (default <code>dru_&lt;program&gt;</code>, for example <code>dru_cputest</code>). An ID is <code>a-z</code>, <code>0-9</code> and <code>_</code></td>
+</tr>
+<tr>
+<td><code>--now</code></td>
+<td>with <code>--submit</code>: the agent sends within seconds, not with its next report</td>
+</tr>
+<tr>
+<td><code>--drra=path</code></td>
+<td>the agent program. Linux: <code>drra</code> in the PATH, then <code>/usr/sbin/drra</code>. Windows: <code>%ProgramFiles%\DataReel\ReportingAgent\drra_svc.exe</code></td>
+</tr>
+<tr>
+<td><code>--drra-config=ini</code></td>
+<td>Linux only: the agent settings file (<code>drra -c ini</code>), for tests. A Windows test copy of the agent reads the <code>drra.ini</code> next to it</td>
+</tr>
+</tbody>
+</table>
+<p><code>dr_report.py</code> takes <code>--submit [ID]</code> (default <code>dru_report</code>), <code>--now</code>, <code>--drra</code> and <code>--drra-config</code> the same way.</p>
+<ul>
+<li>With both <code>--drsm</code> and <code>--submit</code>, the <code>--drsm</code> file is the one submitted. With <code>--submit</code> alone the lines go through a private temporary folder that is removed afterwards.</li>
+<li>The exit status is 1 when the agent refuses the file or cannot be run, so a cron job or scheduled task sees it.</li>
+<li><code>drra submit</code> needs root or the <code>drra-upload</code> group on Linux, and an administrator on Windows.</li>
+</ul>
+<h2 id="what-each-program-sends">What each program sends</h2>
+<table>
+<thead>
+<tr>
+<th>Program</th>
+<th>Hook ID</th>
+<th>Values for rules and trends</th>
+<th>Table</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cputest</code></td>
+<td><code>dru_cputest</code></td>
+<td><code>total</code> (MB/s), <code>elapsed</code>, <code>threads</code>, <code>buf_size</code></td>
+<td>seconds per thread</td>
+</tr>
+<tr>
+<td><code>disktest</code></td>
+<td><code>dru_disktest</code></td>
+<td><code>total</code> (seconds), <code>insert_time</code>, <code>search_time</code>, <code>delete_time</code>, <code>reinsert_time</code>, <code>num_inserts</code></td>
+<td>seconds and ms per key per phase</td>
+</tr>
+<tr>
+<td><code>memtest</code></td>
+<td><code>dru_memtest</code></td>
+<td><code>total</code> (seconds), <code>threads</code>, <code>num_inserts</code></td>
+<td>seconds per phase</td>
+</tr>
+<tr>
+<td><code>flops</code></td>
+<td><code>dru_flops</code></td>
+<td><code>total</code> (GFLOPS), <code>elapsed</code>, <code>threads</code>, <code>precision</code>, <code>mode</code></td>
+<td>seconds per thread</td>
+</tr>
+<tr>
+<td><code>tcptest</code></td>
+<td><code>dru_tcptest</code></td>
+<td><code>total</code> (MB/s), <code>clients</code>, <code>bytes</code>, <code>direction</code></td>
+<td>MB/s per client</td>
+</tr>
+<tr>
+<td><code>udptest</code></td>
+<td><code>dru_udptest</code></td>
+<td><code>total</code> (MB/s), <code>loss_max_pct</code>, <code>clients</code>, <code>rate_limit</code></td>
+<td>MB/s and % lost per client</td>
+</tr>
+<tr>
+<td><code>mctest</code></td>
+<td><code>dru_mctest</code></td>
+<td><code>total</code> (MB/s per receiver), <code>loss_max_pct</code>, <code>receivers</code></td>
+<td>MB/s and % lost per receiver</td>
+</tr>
+<tr>
+<td><code>sar_cpu_stats</code></td>
+<td><code>dru_sar_cpu_stats</code></td>
+<td><code>busy_avg</code>, <code>&lt;field&gt;_avg</code> and <code>&lt;field&gt;_peak</code>, <code>idle_min</code>, <code>steal_spikes</code>, <code>iowait_spikes</code>, <code>gaps</code>, <code>bad_samples</code>, <code>files_failed</code></td>
+<td>one row per sar file</td>
+</tr>
+<tr>
+<td><code>dr_report.py</code></td>
+<td><code>dru_report</code></td>
+<td>the whole HTML report, charts included</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>Each result also has an INFO line with the main result and settings, and the values <code>benchmark</code> (or <code>program</code>), <code>version</code>, <code>build</code> and <code>collected</code>. What <code>cputest --num-threads=2 --drsm=cpu.drsm</code> writes:</p>
+<pre><code>INFO - CPU Speed Benchmark (cputest 1.4): zlib compress + uncompress rate 40.8762 MB/s, threads=2 buf_size=10000000 repeat=1
+DETAIL benchmark=cputest
+DETAIL version=1.4
+DETAIL build=GCC
+DETAIL threads=2
+DETAIL buf_size=10000000
+DETAIL repeat=1
+DETAIL total=40.8762
+DETAIL total_unit=MB/s
+DETAIL elapsed=0.244641
+DETAIL collected=2026-11-19T13:11:41-0500
+UPLOAD columns|Thread|seconds
+UPLOAD row|Thread 0|0.243874
+UPLOAD row|Thread 1|0.229364
+</code></pre>
+<h2 id="setting-it-up">Setting it up</h2>
+<h3 id="1-monitor-host-drsm">1. Monitor host (DRSM)</h3>
+<p>Copy the manifests you want to DRSM's upload plugins:</p>
+<pre><code>cp -r hooks/drsm/uploads/dru_* /path/to/drsm/plugins/uploads/
+</code></pre>
+<p>The report server's <code>hook.php</code> reads them from <code>[hooks] manifest_dir</code> in its <code>server.ini</code> (the same folder on a DRSM install). Each host needs <code>UPLOADS_DIR</code> and <code>UPLOADS=auto</code> (or a list of hook IDs) in its DRSM host file. This is the same setup as every other upload hook; see "Hook uploads" in DRSM's PLUGINS.md. For <code>dru_report</code>, the report server's <code>[hooks] max_bytes</code> must allow the report size (reports with many charts can be several MB), and the dashboard needs <code>$UPLOADSdir</code> for the html display.</p>
+<h3 id="2-agent-host-linux">2. Agent host, Linux</h3>
+<p>The installer is a dry run unless <code>--apply</code> is given. It copies <code>hooks/uploads.d/&lt;id&gt;.ini</code> to <code>/etc/drra/uploads.d/</code>.</p>
+<pre><code>sudo hooks/linux/install_hooks.sh all                     # what it would do
+sudo hooks/linux/install_hooks.sh --apply all             # install every hook file
+sudo hooks/linux/install_hooks.sh --apply cputest disktest   # only these
+sudo hooks/linux/install_hooks.sh --help
+</code></pre>
+<p>A user who runs the benchmarks without sudo needs the <code>drra-upload</code> group:</p>
+<pre><code>sudo usermod -aG drra-upload benchuser     # then log in again
+</code></pre>
+<h3 id="3-agent-host-windows">3. Agent host, Windows</h3>
+<p>From an administrator PowerShell or <code>cmd.exe</code> prompt, in the dr_utils folder. A dry run unless <code>-Apply</code> is given. The hook files go to <code>C:\ProgramData\DataReel\ReportingAgent\uploads.d\</code>.</p>
+<pre><code>powershell -ExecutionPolicy Bypass -File hooks\windows\install_hooks.ps1 all
+powershell -ExecutionPolicy Bypass -File hooks\windows\install_hooks.ps1 all -Apply
+powershell -ExecutionPolicy Bypass -File hooks\windows\install_hooks.ps1 cputest disktest -Apply
+</code></pre>
+<h3 id="4-send-a-result-and-check-it">4. Send a result and check it</h3>
+<p>Linux:</p>
+<pre><code>cputest --num-threads=8 --submit --now
+sudo drra uploads                         # the state of each hook
+</code></pre>
+<p>Windows (administrator prompt):</p>
+<pre><code>cputest --num-threads=8 --submit --now
+&quot;%ProgramFiles%\DataReel\ReportingAgent\drra_svc.exe&quot; uploads
+</code></pre>
+<p>The result is on the host's DRSM page after the next DRSM run.</p>
+<h2 id="examples">Examples</h2>
+<p>Linux:</p>
+<pre><code>cputest --num-threads=$(nproc) --submit --now
+disktest --file=/data/testfile.btx --submit
+flops --dp --num-threads=$(nproc) --submit
+tcptest -n4 -s1G --submit 192.0.2.10
+udptest -s100M -r500M --submit 192.0.2.10
+mctest -i192.0.2.21 --submit
+sar_cpu_stats --submit --now sar_yesterday.txt
+dr_report.py -o host_report.html --submit results/
+
+# look first, send later by hand
+cputest --drsm=cpu.drsm
+cat cpu.drsm
+sudo drra submit --hook dru_cputest --now cpu.drsm
+
+# a hook under another ID (its .ini and manifest must exist)
+disktest --file=/san/testfile.btx --submit=dru_disktest_san
+
+# a test agent build
+cputest --submit --drra=/path/to/lra/drra --drra-config=/path/to/test/drra.ini
+</code></pre>
+<p>Windows (administrator prompt):</p>
+<pre><code>cputest --num-threads=%NUMBER_OF_PROCESSORS% --submit --now
+disktest --file=D:\bench\testfile.btx --submit
+tcptest -n4 -s1G --submit 192.0.2.10
+sar_cpu_stats --submit C:\reports\sar\node1_19.txt
+py benchmarks\plot\dr_report.py -o host_report.html --submit results
+
+cputest --drsm=cpu.drsm
+type cpu.drsm
+&quot;%ProgramFiles%\DataReel\ReportingAgent\drra_svc.exe&quot; submit --hook dru_cputest --now cpu.drsm
+
+cputest --submit --drra=C:\test\agent\drra_svc.exe
+</code></pre>
+<p>A weekly scheduled task on Windows:</p>
+<pre><code>schtasks /Create /TN &quot;dr_utils cputest&quot; /SC WEEKLY /D SUN /ST 02:00 /RU SYSTEM /TR &quot;\&quot;C:\Program Files\dr_utils\cputest.exe\&quot; --num-threads=4 --submit&quot;
+</code></pre>
+<p>A weekly cron job on Linux (<code>/etc/cron.d/dru_cputest</code>):</p>
+<pre><code>0 2 * * 0 root /usr/local/bin/cputest --num-threads=4 --submit &gt; /dev/null
+</code></pre>
+<p>For a scheduled benchmark, set <code>uploads_dru_cputest_MAX_AGE_HOURS</code> on the host in DRSM (see below) so a stopped job shows.</p>
+<h2 id="daily-sar-cpu-use-linux">Daily sar CPU use (Linux)</h2>
+<p><code>hooks/linux/dru_sar_cpu_stats.sh</code> makes the sar text report of one day with <code>LC_ALL=C sar -u -f /var/log/sa/saDD</code> and runs <code>sar_cpu_stats --submit</code> on it.</p>
+<pre><code>dru_sar_cpu_stats.sh [--day=yesterday|today|YYYY-MM-DD] [--sa-dir=/var/log/sa] [--now] [--print] [other sar_cpu_stats options]
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--day=</code></td>
+<td><code>yesterday</code> (default), <code>today</code> or a date</td>
+</tr>
+<tr>
+<td><code>--sa-dir=</code></td>
+<td>the sysstat folder (default <code>/var/log/sa</code>)</td>
+</tr>
+<tr>
+<td><code>--now</code></td>
+<td>the agent sends within seconds</td>
+</tr>
+<tr>
+<td><code>--print</code></td>
+<td>print the DRSM lines instead of submitting them</td>
+</tr>
+<tr>
+<td>other options</td>
+<td>go to <code>sar_cpu_stats</code>, for example <code>--iowait=30</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>sar_cpu_stats</code> is found next to the script, then in the PATH, or set <code>SAR_CPU_STATS=/path/to/sar_cpu_stats</code>. It needs sysstat.</p>
+<pre><code>hooks/linux/dru_sar_cpu_stats.sh --print
+sudo hooks/linux/dru_sar_cpu_stats.sh --day=2026-11-18 --now --steal=5
+sudo hooks/linux/install_hooks.sh --sar-cron              # dry run
+sudo hooks/linux/install_hooks.sh --sar-cron --apply
+</code></pre>
+<p><code>--sar-cron --apply</code> installs <code>bin/sar_cpu_stats</code> and the script in <code>/usr/local/libexec/dr_utils/</code>, the <code>dru_sar_cpu_stats</code> hook file, and <code>/etc/cron.d/dru_sar_cpu_stats</code>, which runs at 00:20 every day:</p>
+<pre><code>20 0 * * * root /usr/local/libexec/dr_utils/dru_sar_cpu_stats.sh &gt; /dev/null
+</code></pre>
+<p>The manifest warns when the data is more than 30 hours old, so a stopped cron job shows.</p>
+<h2 id="alert-rules">Alert rules</h2>
+<p>The manifests have rules only where a limit means the same thing everywhere: UDP and multicast loss (warning over 1%, error over 10%) and sar steal or iowait spikes. Benchmark speeds depend on the hardware, so set limits per host in its DRSM host file:</p>
+<pre><code>uploads_dru_cputest_WARN_IF=&quot;total &lt; 50&quot;
+uploads_dru_disktest_WARN_IF=&quot;total &gt; 60&quot;
+uploads_dru_sar_cpu_stats_WARN_IF=&quot;steal_spikes &gt; 0 or iowait_spikes &gt; 0 or gaps &gt; 2&quot;
+uploads_dru_cputest_MAX_AGE_HOURS=26
+</code></pre>
+<p>Every value in the table above can be in a rule, and the <code>METRICS</code> list of each manifest is kept for the trends page as <code>&lt;hook id&gt;_&lt;value&gt;</code> (for example <code>dru_cputest_total</code>).</p>
+<h2 id="notes">Notes</h2>
+<ul>
+<li>The dashboard files a result under the host whose agent sent it. A sar report or results from another host show under the sending host (the sar host name is in the <code>sar_host</code> value and the table).</li>
+<li><code>tcptest</code>, <code>udptest</code> and <code>mctest</code> send from the client or receiver side; the servers have no hook output.</li>
+</ul>
+<h2 id="testing-the-whole-path">Testing the whole path</h2>
+<p><code>tests/hooks_e2e_test.sh</code> runs the programs, a real agent, its <code>hook.php</code> on a local <code>php -S</code> server and the DRSM upload probe, all on one Linux machine:</p>
+<pre><code>LRA_DIR=/path/to/built/linux_reporting_agent DRSM_DIR=/path/to/drsm tests/hooks_e2e_test.sh
+</code></pre>
+<p>It needs dr_utils built (<code>./build.sh</code>), the agent built in <code>LRA_DIR</code> (<code>make</code>), and PHP.</p>
+<p class="foot">dr_utils 1.4 documentation, GNU LGPL 3 or later. Made from docs/dashboard-hooks.md by docs/make_html.py.</p>
+</div>
+</main>
+</div>
+<script src="search_index.js"></script>
+<script src="dr_utils.js"></script>
+</body>
+</html>

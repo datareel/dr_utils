@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Network tools - dr_utils 1.4</title>
+<link rel="stylesheet" href="dr_utils.css">
+</head>
+<body>
+<div class="wrap">
+<nav>
+<p class="title"><a href="index.html">dr_utils 1.4</a></p>
+<input id="q" type="search" placeholder="Search the docs ( / )" aria-label="Search the docs">
+<button id="menu-btn" type="button">Pages</button>
+<ul>
+<li><a href="index.html">Overview</a></li>
+<li><a href="install.html">Building and installing</a></li>
+<li><a href="file-tools.html">File tools</a></li>
+<li><a href="network-tools.html" class="cur">Network tools</a></li>
+<li><a href="benchmarks.html">Benchmarks</a></li>
+<li><a href="sar-cpu-stats.html">sar CPU statistics</a></li>
+<li><a href="plots-and-reports.html">Plots, reports, watch scripts</a></li>
+<li><a href="dashboard-hooks.html">Dashboard hooks</a></li>
+<li><a href="hooks.html">Hook files reference</a></li>
+<li><a href="quick-reference.html">Quick reference</a></li>
+</ul>
+<div class="theme"><button id="theme-btn" type="button">Light / dark</button></div>
+</nav>
+<main>
+<div id="results"></div>
+<div id="content">
+<h1 id="network-tools">Network tools</h1>
+<p>Seven tools for checking connectivity and finding what is on a network. They are based on work from the 1999-2010 network scan programs and keep their output lines (<code>Contacting host:</code>, <code>TCP port n open</code> ...), so existing scripts keep working.</p>
+<p>Use them only on networks and hosts you own or are allowed to scan. The range tools scan one /24 at most.</p>
+<p><strong>Ranges.</strong> <code>pingscan</code>, <code>dnsscan</code> and <code>arpscan</code> take a range:</p>
+<table>
+<thead>
+<tr>
+<th>Range</th>
+<th>Addresses</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>192.0.2</code></td>
+<td>192.0.2.1 to 192.0.2.254</td>
+</tr>
+<tr>
+<td><code>192.0.2.7</code></td>
+<td>one address</td>
+</tr>
+<tr>
+<td><code>192.0.2.10-40</code></td>
+<td>192.0.2.10 to 192.0.2.40</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Services files.</strong> <code>portscan</code> and <code>netpscan</code> name open ports from a services file. The default is <code>/etc/services</code> on Linux and <code>%SystemRoot%\System32\drivers\etc\services</code> on Windows. Name another file as the last argument.</p>
+<p><strong>Privileges.</strong> See <a href="install.html#privileges">Building and installing</a>. On Linux a ping needs <code>net.ipv4.ping_group_range</code> to include the user's group (the RHEL default), or root. On Windows nothing needs administrator rights.</p>
+<h2 id="internet-test">internet-test</h2>
+<p>Waits until a web server answers over HTTP: DNS lookup, TCP connect and an HTTP response header are all checked. Any HTTP status passes (a 404 still proves the path works).</p>
+<pre><code>internet-test [switches] server
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Switch</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>server</code></td>
+<td>a host name (<code>www.example.com</code>), <code>host:port</code>, or a URL (<code>http://www.example.com:8080/</code>)</td>
+</tr>
+<tr>
+<td><code>-c n</code></td>
+<td>try <code>n</code> times; <code>0</code> (the default) tries until it passes</td>
+</tr>
+<tr>
+<td><code>-w sec</code></td>
+<td>seconds between tries (default 60)</td>
+</tr>
+<tr>
+<td><code>-t ms</code></td>
+<td>connect timeout in milliseconds (default 5000)</td>
+</tr>
+<tr>
+<td><code>-p port</code></td>
+<td>HTTP port (default 80)</td>
+</tr>
+<tr>
+<td><code>-q</code></td>
+<td>print only the final result</td>
+</tr>
+</tbody>
+</table>
+<p>Output: <code>Internet connectivity test passed (www.example.com, HTTP status 200)</code>, or <code>... failed after n tries</code> with the reason.</p>
+<p>Exit status: 0 passed, 1 every try failed, 2 usage error.</p>
+<p>Linux:</p>
+<pre><code>internet-test -c 3 -w 10 www.example.com
+internet-test -q -c 10 -w 30 www.example.com &amp;&amp; /usr/local/bin/start_sync.sh
+internet-test -p 8080 -t 2000 -c 1 intranet.example.com
+internet-test -c 1 http://192.0.2.20:8080/
+</code></pre>
+<p>A boot job that waits for the network before starting a sync (<code>internet-test</code> with <code>-c 0</code> waits as long as it takes):</p>
+<pre><code>@reboot  root  /usr/local/bin/internet-test -q -w 30 www.example.com &amp;&amp; /usr/local/bin/start_sync.sh
+</code></pre>
+<p>Windows, <code>cmd.exe</code>:</p>
+<pre><code>internet-test -c 3 -w 10 www.example.com
+internet-test -q -c 10 -w 30 www.example.com &amp;&amp; C:\jobs\start_sync.cmd
+</code></pre>
+<p>Windows, PowerShell:</p>
+<pre><code>internet-test -q -c 5 -w 10 www.example.com
+if ($LASTEXITCODE -ne 0) { Write-Warning 'no Internet' }
+</code></pre>
+<h2 id="pingscan">pingscan</h2>
+<p>Ping sweep of a range, with the DNS name and reply time of each host.</p>
+<pre><code>pingscan [-t ms] [-u] range
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Switch</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-t ms</code></td>
+<td>ping timeout in milliseconds (default 1000)</td>
+</tr>
+<tr>
+<td><code>-u</code></td>
+<td>list only the hosts that answer</td>
+</tr>
+</tbody>
+</table>
+<p>Each address gets a <code>Contacting host:</code> block (<code>Hostname:</code>, then <code>Host is up, reply in n ms</code> or <code>Host not responding.</code>). The output ends with <code>n of m hosts answered</code>. One host that fails does not stop the sweep.</p>
+<p>Exit status: 0 if any host answered, 1 if none did, 2 on an error.</p>
+<p>Linux:</p>
+<pre><code>pingscan 192.0.2
+pingscan -u -t 300 192.0.2.10-40
+pingscan -u 192.0.2 | grep '^Contacting host:'
+</code></pre>
+<p>Windows:</p>
+<pre><code>pingscan 192.0.2
+pingscan -u -t 300 192.0.2.10-40 &gt; lan_up.txt
+</code></pre>
+<h2 id="dnsscan">dnsscan</h2>
+<p>Lists the reverse DNS names in a range, with an optional forward check and ping.</p>
+<pre><code>dnsscan [-a] [-f] [-p] [-t ms] range
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Switch</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-a</code></td>
+<td>also list addresses with no DNS name (<code>no_DNS_entry</code>)</td>
+</tr>
+<tr>
+<td><code>-f</code></td>
+<td>check that each name resolves back to the address: <code>fwd_ok</code>, or <code>fwd_mismatch</code> with the address it resolves to</td>
+</tr>
+<tr>
+<td><code>-p</code></td>
+<td>ping each address too: <code>up (ms)</code> or <code>down</code></td>
+</tr>
+<tr>
+<td><code>-t ms</code></td>
+<td>ping timeout in milliseconds (default 1000)</td>
+</tr>
+</tbody>
+</table>
+<p>Output is one tab-separated line per address: address, name, then the <code>-f</code> and <code>-p</code> columns.</p>
+<pre><code>192.0.2.10  www.example.com fwd_ok  up (0.4 ms)
+192.0.2.11  old-host.example.com    fwd_mismatch 192.0.2.99 down
+</code></pre>
+<p>Exit status: 0 if any address has a name, 1 if none, 2 on an error.</p>
+<p>Linux:</p>
+<pre><code>dnsscan 192.0.2
+dnsscan -f 192.0.2 | grep fwd_mismatch          # stale PTR records
+dnsscan -a -f -p -t 300 192.0.2.1-60 &gt; dns_192.0.2.tsv
+</code></pre>
+<p>Windows:</p>
+<pre><code>dnsscan -f 192.0.2
+dnsscan -a -f -p 192.0.2 &gt; dns_192.0.2.tsv
+</code></pre>
+<p>PowerShell, as objects:</p>
+<pre><code>dnsscan -f -p 192.0.2 | ConvertFrom-Csv -Delimiter &quot;`t&quot; -Header Address,Name,Forward,Ping
+</code></pre>
+<h2 id="portscan">portscan</h2>
+<p>Checks one host: its names and addresses, a ping, and a TCP connect to each port, with the services file entry of each open port.</p>
+<pre><code>portscan [-t ms] [-n] hostname ports [services_file]
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>hostname</code></td>
+<td>a host name or address</td>
+</tr>
+<tr>
+<td><code>ports</code></td>
+<td>a port (<code>22</code>), a list (<code>22,80,443</code>) or a range (<code>8000-8100</code>); up to 1024 ports</td>
+</tr>
+<tr>
+<td><code>-t ms</code></td>
+<td>connect and ping timeout in milliseconds (default 2000)</td>
+</tr>
+<tr>
+<td><code>-n</code></td>
+<td>do not ping the host first</td>
+</tr>
+<tr>
+<td><code>services_file</code></td>
+<td>the services file for the port names (see above)</td>
+</tr>
+</tbody>
+</table>
+<p>A host that drops ICMP is still scanned. A filtered port waits only for <code>-t</code>, not the system connect timeout.</p>
+<pre><code>Contacting host: 192.0.2.10
+Hostname: www.example.com
+Host IP Address: 192.0.2.10
+TCP port 22 open
+  Name:     ssh
+  Comment:  The Secure Shell (SSH) Protocol
+TCP port 443 open
+  Name:     https
+2 of 3 TCP ports open
+</code></pre>
+<p>Exit status: 0 if any port is open, 1 if none is, 2 on an error.</p>
+<p>Linux:</p>
+<pre><code>portscan www.example.com 22,80,443
+portscan -n -t 500 192.0.2.10 1-1024
+portscan 192.0.2.10 8000-8100 ./my_services
+portscan -n db.example.com 5432 &gt; /dev/null &amp;&amp; echo &quot;database port is open&quot;
+</code></pre>
+<p>Windows:</p>
+<pre><code>portscan www.example.com 22,80,443,3389
+portscan -n -t 500 192.0.2.10 1-1024
+portscan -n db.example.com 1433 &gt; nul &amp;&amp; echo database port is open
+</code></pre>
+<h2 id="netpscan">netpscan</h2>
+<p>Scans a list of addresses for open TCP ports.</p>
+<pre><code>netpscan [switches] iplist_file [services_file]
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>iplist_file</code></td>
+<td>one IPv4 address or host name per line; <code>#</code> starts a comment</td>
+</tr>
+<tr>
+<td><code>-p ports</code></td>
+<td>scan these ports: <code>22,80,443</code> or <code>1-1024</code></td>
+</tr>
+<tr>
+<td><code>-A</code></td>
+<td>scan every TCP port named in the services file (the default is the named ports below 1024)</td>
+</tr>
+<tr>
+<td><code>-t ms</code></td>
+<td>connect and ping timeout (default 500)</td>
+</tr>
+<tr>
+<td><code>-s</code></td>
+<td>skip addresses that do not answer a ping</td>
+</tr>
+<tr>
+<td><code>services_file</code></td>
+<td>the services file for the port list and names</td>
+</tr>
+</tbody>
+</table>
+<p>Each open port is printed as <code>port/tcp name aliases # comment</code>, and each address ends with <code>n open TCP port(s)</code>.</p>
+<p>Exit status: 0 when the scan ran, 2 on an error.</p>
+<p>An address list (<code>servers.txt</code>):</p>
+<pre><code># web and database servers
+192.0.2.10
+192.0.2.11
+db.example.com
+</code></pre>
+<p>Linux:</p>
+<pre><code>netpscan servers.txt
+netpscan -p 22,80,443,3389 servers.txt
+netpscan -s -A -t 300 servers.txt &gt; ports_$(date +%F).txt
+</code></pre>
+<p>Windows:</p>
+<pre><code>netpscan servers.txt
+netpscan -p 22,80,443,3389,5985 servers.txt &gt; ports.txt
+netpscan -A servers.txt C:\tools\services.txt
+</code></pre>
+<h2 id="arpscan">arpscan</h2>
+<p>Lists the MAC address (and vendor) of each host on a directly attached /24 network. It pings each address, then reads the MAC address from the system ARP table (<code>/proc/net/arp</code> on Linux, <code>SendARP</code> on Windows).</p>
+<pre><code>arpscan [switches] range
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Switch</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-i dev</code></td>
+<td>Linux: only ARP entries on this interface (<code>-i eth0</code>)</td>
+</tr>
+<tr>
+<td><code>-v file</code></td>
+<td>vendor code file: one <code>XXXXXX Vendor Name</code> line per MAC prefix (6 hex digits, the DataReel <code>FindVendor</code> format)</td>
+</tr>
+<tr>
+<td><code>-o file</code></td>
+<td>also write the list to a file</td>
+</tr>
+<tr>
+<td><code>-t ms</code></td>
+<td>ping timeout in milliseconds (default 1000)</td>
+</tr>
+<tr>
+<td><code>-a</code></td>
+<td>list hosts with no MAC address too (<code>no_ARP_entry</code>)</td>
+</tr>
+</tbody>
+</table>
+<p>Output is one tab-separated line per host: address, DNS name, MAC address and, with <code>-v</code>, the vendor.</p>
+<pre><code>192.0.2.1   gw.example.com  00:00:5E:00:53:01   ICANN, IANA Department
+192.0.2.12  printer.example.com 00:00:5E:00:53:12   ICANN, IANA Department
+</code></pre>
+<p>Only hosts on a directly attached network have a MAC address. Hosts behind a router show the router's or none.</p>
+<p>An IEEE OUI list converts to a vendor file, for example on Linux:</p>
+<pre><code>grep '(hex)' oui.txt | sed -E 's/^([0-9A-F]{2})-([0-9A-F]{2})-([0-9A-F]{2}) +\(hex\)\t+/\1\2\3 /' &gt; maccodes.txt
+</code></pre>
+<p>Exit status: 0 if any MAC address was found, 1 if none, 2 on an error.</p>
+<p>Linux:</p>
+<pre><code>arpscan 192.0.2
+arpscan -i eth0 -v maccodes.txt -o lan.txt 192.0.2
+arpscan -a -t 300 192.0.2.1-50
+</code></pre>
+<p>Windows:</p>
+<pre><code>arpscan 192.0.2
+arpscan -v maccodes.txt -o lan.txt 192.0.2
+</code></pre>
+<h2 id="getmac">getmac</h2>
+<p>Shows the MAC address of one host on a local network.</p>
+<pre><code>getmac hostname [ethernet_device]
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>hostname</code></td>
+<td>a host name or address on a directly attached network</td>
+</tr>
+<tr>
+<td><code>ethernet_device</code></td>
+<td>Linux: only an ARP entry on this interface</td>
+</tr>
+</tbody>
+</table>
+<p>It shows the host's names, pings it, and prints <code>MAC Address: XX:XX:XX:XX:XX:XX</code>.</p>
+<p>Exit status: 0 with the MAC address, 1 if there is no ARP entry (the host did not answer or is not on a local network), 2 on an error.</p>
+<p>Linux:</p>
+<pre><code>getmac 192.0.2.12
+getmac printer.example.com eth0
+mac=$(getmac 192.0.2.12 | sed -n 's/^MAC Address: //p')
+</code></pre>
+<p>Windows has its own <code>getmac.exe</code> that lists the local adapters, and it comes first on the PATH. Run this one by its full path (or install it under another name, see <a href="install.html#installing-on-windows">Building and installing</a>):</p>
+<pre><code>&quot;C:\Program Files\dr_utils\getmac.exe&quot; 192.0.2.12
+C:\src\dr_utils\bin\getmac.exe printer.example.com
+</code></pre>
+<p>PowerShell:</p>
+<pre><code>&amp; 'C:\Program Files\dr_utils\getmac.exe' 192.0.2.12 | Select-String '^MAC Address'
+</code></pre>
+<p class="foot">dr_utils 1.4 documentation, GNU LGPL 3 or later. Made from docs/network-tools.md by docs/make_html.py.</p>
+</div>
+</main>
+</div>
+<script src="search_index.js"></script>
+<script src="dr_utils.js"></script>
+</body>
+</html>

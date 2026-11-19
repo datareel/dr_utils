@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quick reference - dr_utils 1.4</title>
+<link rel="stylesheet" href="dr_utils.css">
+</head>
+<body>
+<div class="wrap">
+<nav>
+<p class="title"><a href="index.html">dr_utils 1.4</a></p>
+<input id="q" type="search" placeholder="Search the docs ( / )" aria-label="Search the docs">
+<button id="menu-btn" type="button">Pages</button>
+<ul>
+<li><a href="index.html">Overview</a></li>
+<li><a href="install.html">Building and installing</a></li>
+<li><a href="file-tools.html">File tools</a></li>
+<li><a href="network-tools.html">Network tools</a></li>
+<li><a href="benchmarks.html">Benchmarks</a></li>
+<li><a href="sar-cpu-stats.html">sar CPU statistics</a></li>
+<li><a href="plots-and-reports.html">Plots, reports, watch scripts</a></li>
+<li><a href="dashboard-hooks.html">Dashboard hooks</a></li>
+<li><a href="hooks.html">Hook files reference</a></li>
+<li><a href="quick-reference.html" class="cur">Quick reference</a></li>
+</ul>
+<div class="theme"><button id="theme-btn" type="button">Light / dark</button></div>
+</nav>
+<main>
+<div id="results"></div>
+<div id="content">
+<h1 id="quick-reference">Quick reference</h1>
+<p>Every program and option on one page. On Windows the programs are <code>&lt;name&gt;.exe</code> with the same options. Dashboard options (<code>--drsm</code>, <code>--submit[=ID]</code>, <code>--now</code>, <code>--drra</code>, <code>--drra-config</code>) are marked <strong>[D]</strong>, see <a href="dashboard-hooks.html">Dashboard</a>.</p>
+<h2 id="file-tools-details">File tools (<a href="file-tools.html">details</a>)</h2>
+<table>
+<thead>
+<tr>
+<th>Program and options</th>
+<th>Exit status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>file_hours [-s] filename numhours</code></td>
+<td>0 YES or NOT, 1 ERR; with <code>-s</code>: 0 YES, 1 NOT, 2 ERR</td>
+</tr>
+<tr>
+<td><code>file_purge [-e | -l | -h&lt;n&gt; | -d&lt;n&gt;] [-m"dir"] [-n] [-v] file ...</code></td>
+<td>0 files checked, 1 usage error</td>
+</tr>
+<tr>
+<td><code>filetimes [-n | -o] file ...</code></td>
+<td>0, 1 if a file cannot be read</td>
+</tr>
+</tbody>
+</table>
+<h2 id="network-tools-details">Network tools (<a href="network-tools.html">details</a>)</h2>
+<table>
+<thead>
+<tr>
+<th>Program and options</th>
+<th>Exit status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>internet-test [-c n] [-w sec] [-t ms] [-p port] [-q] server</code> (defaults: <code>-c 0</code> until it passes, <code>-w 60</code>, <code>-t 5000</code>, <code>-p 80</code>)</td>
+<td>0 passed, 1 failed, 2 error</td>
+</tr>
+<tr>
+<td><code>pingscan [-t ms] [-u] range</code> (<code>-t 1000</code>)</td>
+<td>0 any answered, 1 none, 2 error</td>
+</tr>
+<tr>
+<td><code>dnsscan [-a] [-f] [-p] [-t ms] range</code></td>
+<td>0 any name, 1 none, 2 error</td>
+</tr>
+<tr>
+<td><code>portscan [-t ms] [-n] hostname ports [services_file]</code> (<code>-t 2000</code>, up to 1024 ports)</td>
+<td>0 any open, 1 none, 2 error</td>
+</tr>
+<tr>
+<td><code>netpscan [-p ports] [-A] [-t ms] [-s] iplist_file [services_file]</code> (<code>-t 500</code>)</td>
+<td>0 ran, 2 error</td>
+</tr>
+<tr>
+<td><code>arpscan [-i dev] [-v vendor_file] [-o out_file] [-t ms] [-a] range</code></td>
+<td>0 any MAC, 1 none, 2 error</td>
+</tr>
+<tr>
+<td><code>getmac hostname [ethernet_device]</code></td>
+<td>0 MAC found, 1 no ARP entry, 2 error</td>
+</tr>
+</tbody>
+</table>
+<p>Ranges: <code>192.0.2</code> (.1 to .254), <code>192.0.2.7</code>, <code>192.0.2.10-40</code>.</p>
+<h2 id="benchmarks-details">Benchmarks (<a href="benchmarks.html">details</a>)</h2>
+<table>
+<thead>
+<tr>
+<th>Program and options</th>
+<th>Defaults</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cputest [--num-threads=N] [--buf-size=SIZE] [--repeat=N] [--datfile=f]</code> <strong>[D]</strong></td>
+<td>1 thread, <code>100m</code>, 1 pass</td>
+</tr>
+<tr>
+<td><code>flops [--num-threads=N] [--dp] [--div] [--iterations=N] [--datfile=f]</code> <strong>[D]</strong></td>
+<td>1 thread, single precision, <code>1g</code></td>
+</tr>
+<tr>
+<td><code>memtest [--num-threads=N] [--num-inserts=N] [--datfile=f]</code> <strong>[D]</strong></td>
+<td>1 thread, <code>25k</code> keys (max <code>1m</code>)</td>
+</tr>
+<tr>
+<td><code>disktest [--num-inserts=N] [--file=f] [--keep] [--datfile=f]</code> <strong>[D]</strong></td>
+<td><code>1m</code> keys, <code>testfile.btx</code></td>
+</tr>
+<tr>
+<td><code>tcpserv [-p port] [-l address] [--count=N] [--timeout=S] [--max-bytes=SIZE]</code></td>
+<td>port 53897, all addresses, until Ctrl-C, 30 s, <code>100g</code></td>
+</tr>
+<tr>
+<td><code>tcptest [-b size] [-d] [-n clients] [-p port] [-s bytes] [--datfile=f]</code> <strong>[D]</strong> <code>server</code></td>
+<td>1500, upload, 1 client, 53897, <code>150M</code></td>
+</tr>
+<tr>
+<td><code>udpserv [-p port] [-l address] [--count=N]</code></td>
+<td>port 53897</td>
+</tr>
+<tr>
+<td><code>udptest [-b size] [-n clients] [-p port] [-r rate] [-s bytes] [--datfile=f]</code> <strong>[D]</strong> <code>server</code></td>
+<td>1500, 1 client, 53897, no rate limit, <code>150M</code></td>
+</tr>
+<tr>
+<td><code>mcserv [-b size] [-g group] [-i address] [-p port] [-r rate] [-s bytes] [--seconds=N] [--ttl=N] [--no-loop]</code></td>
+<td>1500, 239.255.10.10, 53898, <code>100M</code> bits/s, <code>150M</code>, TTL 1</td>
+</tr>
+<tr>
+<td><code>mctest [-g group] [-i address] [-n receivers] [-p port] [--timeout=S] [--datfile=f]</code> <strong>[D]</strong> <code>[group]</code></td>
+<td>239.255.10.10, 53898, 60 s</td>
+</tr>
+</tbody>
+</table>
+<p>Exit status: <code>tcptest</code> 0 if every client finished; <code>udptest</code> 0 if every client got a report; <code>mctest</code> 0 if every receiver saw the end of a run; 1 otherwise.</p>
+<p>Sizes: <code>1k</code> = 1000, <code>1m</code> = 10^6, <code>1g</code> = 10^9. Rates (<code>-r</code>) are bits a second.</p>
+<h2 id="sar-reports-details">sar reports (<a href="sar-cpu-stats.html">details</a>)</h2>
+<table>
+<thead>
+<tr>
+<th>Program and options</th>
+<th>Exit status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>sar_cpu_stats [--csv [--all-cpus]] [--steal=PCT] [--iowait=PCT] [--list=N] [--alarm]</code> <strong>[D]</strong> <code>sar_file ...</code></td>
+<td>0; 1 error or no samples; 3 with <code>--alarm</code> and findings</td>
+</tr>
+</tbody>
+</table>
+<h2 id="scripts-plots-and-reports-dashboard">Scripts (<a href="plots-and-reports.html">plots and reports</a>, <a href="dashboard-hooks.html">dashboard</a>)</h2>
+<table>
+<thead>
+<tr>
+<th>Script</th>
+<th>Options</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>benchmarks/plot/dr_plot.py</code></td>
+<td><code>[-o OUT] [--averages] [--cpu CPU] [--dpi DPI] files ...</code></td>
+</tr>
+<tr>
+<td><code>benchmarks/plot/dr_report.py</code></td>
+<td><code>-o OUT [--title T] [--csv CSV] [--no-runs] [--submit [ID]] [--now] [--drra P] [--drra-config INI] inputs ...</code></td>
+</tr>
+<tr>
+<td><code>benchmarks/scripts/watch_system.sh</code></td>
+<td><code>[-i sec] [-n count] [STATSONLY]</code> (Linux)</td>
+</tr>
+<tr>
+<td><code>benchmarks/scripts/watch_mem.sh</code></td>
+<td><code>[-i sec] [-n count] [STATSONLY]</code> (Linux)</td>
+</tr>
+<tr>
+<td><code>benchmarks/scripts/watch_mem_usage.sh</code></td>
+<td><code>[-i sec] [-n count] [STATSONLY]</code> (Linux)</td>
+</tr>
+<tr>
+<td><code>hooks/linux/install_hooks.sh</code></td>
+<td><code>[--sar-cron] [--apply] all | &lt;id&gt; ...</code> (dry run without <code>--apply</code>)</td>
+</tr>
+<tr>
+<td><code>hooks/linux/dru_sar_cpu_stats.sh</code></td>
+<td><code>[--day=yesterday|today|YYYY-MM-DD] [--sa-dir=DIR] [--now] [--print] [sar_cpu_stats options]</code></td>
+</tr>
+<tr>
+<td><code>hooks/windows/install_hooks.ps1</code></td>
+<td><code>all | &lt;id&gt; ... [-Apply]</code> (dry run without <code>-Apply</code>)</td>
+</tr>
+<tr>
+<td><code>build.sh</code> / <code>build.cmd</code></td>
+<td><code>[clean]</code>, with <code>DATAREEL_DIR</code> set (and <code>ZLIB_DIR</code> on Windows)</td>
+</tr>
+<tr>
+<td><code>tests/run_tests.sh</code> / <code>tests\run_tests.ps1</code></td>
+<td><code>run_tests.ps1 [-NoLan]</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="ports">Ports</h2>
+<table>
+<thead>
+<tr>
+<th>Port</th>
+<th>Used by</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>TCP 53897</td>
+<td><code>tcpserv</code> / <code>tcptest</code></td>
+</tr>
+<tr>
+<td>UDP 53897</td>
+<td><code>udpserv</code> / <code>udptest</code></td>
+</tr>
+<tr>
+<td>UDP 53898, group 239.255.10.10</td>
+<td><code>mcserv</code> / <code>mctest</code></td>
+</tr>
+</tbody>
+</table>
+<p class="foot">dr_utils 1.4 documentation, GNU LGPL 3 or later. Made from docs/quick-reference.md by docs/make_html.py.</p>
+</div>
+</main>
+</div>
+<script src="search_index.js"></script>
+<script src="dr_utils.js"></script>
+</body>
+</html>

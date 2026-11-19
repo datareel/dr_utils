@@ -40,7 +40,7 @@ Use the network tools and benchmarks only on networks and hosts you own or are a
 ## Documentation
 
 The full documentation, with every option and command lines for Windows and Linux, is in [docs/](docs/README.md):
-[building and installing](docs/install.md), [file tools](docs/file-tools.md), [network tools](docs/network-tools.md), [benchmarks](docs/benchmarks.md), [sar CPU statistics](docs/sar-cpu-stats.md), [plots, reports and watch scripts](docs/plots-and-reports.md), [dashboard hooks](docs/dashboard-hooks.md) and a [quick reference](docs/quick-reference.md).
+[building and installing](docs/install.md), [file tools](docs/file-tools.md), [network tools](docs/network-tools.md), [benchmarks](docs/benchmarks.md), [sar CPU statistics](docs/sar-cpu-stats.md), [plots, reports and watch scripts](docs/plots-and-reports.md), [dashboard hooks](docs/dashboard-hooks.md) and a [quick reference](docs/quick-reference.md). The same pages as searchable HTML are in `docs/html/` (open `docs/html/index.html`).
 
 ## License
 

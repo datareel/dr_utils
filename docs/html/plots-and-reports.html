@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plots, reports, watch scripts - dr_utils 1.4</title>
+<link rel="stylesheet" href="dr_utils.css">
+</head>
+<body>
+<div class="wrap">
+<nav>
+<p class="title"><a href="index.html">dr_utils 1.4</a></p>
+<input id="q" type="search" placeholder="Search the docs ( / )" aria-label="Search the docs">
+<button id="menu-btn" type="button">Pages</button>
+<ul>
+<li><a href="index.html">Overview</a></li>
+<li><a href="install.html">Building and installing</a></li>
+<li><a href="file-tools.html">File tools</a></li>
+<li><a href="network-tools.html">Network tools</a></li>
+<li><a href="benchmarks.html">Benchmarks</a></li>
+<li><a href="sar-cpu-stats.html">sar CPU statistics</a></li>
+<li><a href="plots-and-reports.html" class="cur">Plots, reports, watch scripts</a></li>
+<li><a href="dashboard-hooks.html">Dashboard hooks</a></li>
+<li><a href="hooks.html">Hook files reference</a></li>
+<li><a href="quick-reference.html">Quick reference</a></li>
+</ul>
+<div class="theme"><button id="theme-btn" type="button">Light / dark</button></div>
+</nav>
+<main>
+<div id="results"></div>
+<div id="content">
+<h1 id="plots-reports-and-watch-scripts">Plots, reports and watch scripts</h1>
+<h2 id="plot-data-files---datfile">Plot data files (<code>--datfile</code>)</h2>
+<p><code>cputest</code>, <code>disktest</code>, <code>memtest</code>, <code>flops</code>, <code>tcptest</code>, <code>udptest</code> and <code>mctest</code> take <code>--datfile=fname</code> and write their results as a small INI file: the settings, the main result (<code>total</code>), one value per thread, client, receiver or phase, and a <code>[HOSTINFO]</code> section (host, date, compiler). For example <code>cputest --num-threads=2 --datfile=cpu.dat</code>:</p>
+<pre><code>[BENCHMARK]
+name=cputest
+version=1.4
+threads=2
+buf_size=1e+07
+repeat=1
+total=40.8762
+total_unit=MB/s
+total_label=zlib compress + uncompress rate
+elapsed=0.244641
+items=Thread 0,Thread 1
+item_values=0.243874,0.229364
+item_unit=seconds
+
+[HOSTINFO]
+host=host1.example.com
+date=11/19/2026
+build=GCC
+title=CPU Speed Benchmark
+</code></pre>
+<p><code>disktest --datfile</code> writes the older disk benchmark format (<code>[DISKBENCHMARK]</code>, <code>[PLOTINFO]</code>, <code>[HOSTINFO]</code>) with the time at every 10% of each phase.</p>
+<p>The files are the same on Windows and Linux, so results from both plot and report together.</p>
+<h2 id="dr_plotpy">dr_plot.py</h2>
+<p>Plots <code>--datfile</code> files, <code>sar_cpu_stats --csv</code> output and <code>watch_mem_usage.sh</code> logs. It tells the kind from the contents. Needs Python 3 and matplotlib.</p>
+<pre><code>dr_plot.py [-h] [-o OUT] [--averages] [--cpu CPU] [--dpi DPI] files [files ...]
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>files</code></td>
+<td>one or more input files</td>
+</tr>
+<tr>
+<td><code>-o OUT</code>, <code>--out OUT</code></td>
+<td>write this PNG file (without <code>-o</code> the plot opens in a window)</td>
+</tr>
+<tr>
+<td><code>--averages</code></td>
+<td>disktest: milliseconds per key instead of seconds per 10% of the keys</td>
+</tr>
+<tr>
+<td><code>--cpu CPU</code></td>
+<td>sar CSV: the CPU to plot (default <code>all</code>; needs <code>--csv --all-cpus</code> input)</td>
+</tr>
+<tr>
+<td><code>--dpi DPI</code></td>
+<td>PNG resolution</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>Input</th>
+<th>Plot</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>one benchmark <code>--datfile</code></td>
+<td>a bar per thread, client, receiver or phase, the total in the title; UDP and multicast also show the loss per client</td>
+</tr>
+<tr>
+<td>several files of one benchmark</td>
+<td>one bar per run (host, date, threads or clients) for the main result: compare machines, builds or thread counts</td>
+</tr>
+<tr>
+<td><code>disktest --datfile</code></td>
+<td>insert, find, delete and reinsert times for every 10% of the keys; several files compare the phase totals</td>
+</tr>
+<tr>
+<td><code>sar_cpu_stats --csv</code></td>
+<td>CPU use over time, stacked (user, nice, system, irq + soft, iowait, steal), one panel per host, gaps left empty and bad samples marked in red</td>
+</tr>
+<tr>
+<td><code>watch_mem_usage.sh</code> log</td>
+<td>used memory over time</td>
+</tr>
+</tbody>
+</table>
+<p>Linux:</p>
+<pre><code>dr_plot.py cpu_host1.dat                                 # a window
+dr_plot.py -o cpu.png cpu_host1.dat
+dr_plot.py -o cpu_cmp.png cpu_host1.dat cpu_host2.dat    # compare runs
+dr_plot.py --averages -o disk_ms.png disk.dat
+sar_cpu_stats --csv sar_host1.txt &gt; host1.csv &amp;&amp; dr_plot.py -o host1_cpu.png host1.csv
+watch_mem_usage.sh -i 5 &gt; mem.log &amp; memtest --num-threads=8; kill %1; dr_plot.py -o mem.png mem.log
+</code></pre>
+<p>Windows (<code>py</code> launcher, from the dr_utils folder):</p>
+<pre><code>py benchmarks\plot\dr_plot.py -o cpu.png cpu_host1.dat
+py benchmarks\plot\dr_plot.py -o cpu_cmp.png results\cpu_*.dat
+py benchmarks\plot\dr_plot.py --averages --dpi 150 -o disk.png disk.dat
+</code></pre>
+<p>On a Linux host with no display, use <code>-o</code>.</p>
+<h2 id="dr_reportpy">dr_report.py</h2>
+<p>Builds one HTML report from a folder (or a list) of result files: <code>--datfile</code> files, <code>sar_cpu_stats --csv</code> files and <code>watch_mem_usage.sh</code> logs. The charts are inside the HTML file, so the one file can be mailed, archived or printed.</p>
+<pre><code>dr_report.py [-h] -o OUT [--title TITLE] [--csv CSV] [--no-runs]
+             [--submit [ID]] [--now] [--drra DRRA] [--drra-config DRRA_CONFIG]
+             inputs [inputs ...]
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>inputs</code></td>
+<td>result files or folders</td>
+</tr>
+<tr>
+<td><code>-o OUT</code>, <code>--out OUT</code></td>
+<td>the HTML file to write (required)</td>
+</tr>
+<tr>
+<td><code>--title TITLE</code></td>
+<td>the report title (default "Benchmark report")</td>
+</tr>
+<tr>
+<td><code>--csv CSV</code></td>
+<td>also write the summary table as CSV</td>
+</tr>
+<tr>
+<td><code>--no-runs</code></td>
+<td>only the comparison charts, not one chart per run</td>
+</tr>
+<tr>
+<td><code>--submit [ID]</code></td>
+<td>hand the report to the reporting agent, hook ID (default <code>dru_report</code>), see <a href="dashboard-hooks.html">Dashboard</a></td>
+</tr>
+<tr>
+<td><code>--now</code></td>
+<td>with <code>--submit</code>, the agent sends within seconds</td>
+</tr>
+<tr>
+<td><code>--drra DRRA</code></td>
+<td>agent program (default <code>drra</code>, or <code>%ProgramFiles%\DataReel\ReportingAgent\drra_svc.exe</code> on Windows)</td>
+</tr>
+<tr>
+<td><code>--drra-config DRRA_CONFIG</code></td>
+<td>agent settings file, <code>drra -c INI</code> (Linux, for tests)</td>
+</tr>
+</tbody>
+</table>
+<p>The report has:</p>
+<ul>
+<li>a summary table of every run (benchmark, host, date, compiler, settings, result);</li>
+<li>a section for each benchmark, with a comparison chart when there are several runs and a chart for each run;</li>
+<li>for each sar CSV, a table of averages and peaks per host (user, system, iowait, steal, lowest idle), the count of bad samples, and the CPU chart;</li>
+<li>the memory logs.</li>
+</ul>
+<p>Files in a folder that are not results are listed as skipped.</p>
+<p>Linux:</p>
+<pre><code>mkdir results
+cputest --num-threads=8 --datfile=results/cpu.dat
+disktest --file=/data/testfile.btx --datfile=results/disk.dat
+sar_cpu_stats --csv sar_host1.txt &gt; results/host1_sar.csv
+dr_report.py -o host1_report.html --title &quot;host1 sizing&quot; --csv host1_summary.csv results
+dr_report.py -o compare.html --no-runs host1_results host2_results
+</code></pre>
+<p>Windows:</p>
+<pre><code>py benchmarks\plot\dr_report.py -o report.html --title &quot;file server sizing&quot; results
+py benchmarks\plot\dr_report.py -o compare.html --no-runs --csv compare.csv \\fileserver.example.com\bench\host1 \\fileserver.example.com\bench\host2
+</code></pre>
+<h2 id="watch-scripts-linux">Watch scripts (Linux)</h2>
+<p>In <code>benchmarks/scripts/</code>. Run them in a second terminal (or in the background) while a benchmark runs. All three take <code>-i seconds</code> (default 1), <code>-n count</code> (default 0: until Ctrl-C) and <code>STATSONLY</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Script</th>
+<th>What it prints</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>watch_system.sh [-i sec] [-n count] [STATSONLY]</code></td>
+<td>the release, kernel, CPU, memory, partitions, mounts and disk statistics from /proc, each between <code>START name</code> and <code>END name</code> lines, then <code>top -b</code> until Ctrl-C, and the statistics again at the end. <code>STATSONLY</code>: the statistics once, no top</td>
+</tr>
+<tr>
+<td><code>watch_mem.sh [-i sec] [-n count] [STATSONLY]</code></td>
+<td><code>free</code> and /proc/meminfo every interval, and once more at the end. <code>STATSONLY</code>: /proc/meminfo once</td>
+</tr>
+<tr>
+<td><code>watch_mem_usage.sh [-i sec] [-n count] [STATSONLY]</code></td>
+<td>one <code>YYYY-MM-DD HH:MM:SS used-KB</code> line per interval, for <code>dr_plot.py</code> and <code>dr_report.py</code>. <code>STATSONLY</code>: one line</td>
+</tr>
+</tbody>
+</table>
+<pre><code>benchmarks/scripts/watch_system.sh STATSONLY &gt; host1_system.txt
+benchmarks/scripts/watch_system.sh -i 5 &gt; host1_during_disktest.txt &amp;
+disktest --file=/data/testfile.btx --datfile=results/disk.dat
+kill %1
+
+benchmarks/scripts/watch_mem_usage.sh -i 2 &gt; results/mem.log &amp;
+memtest --num-threads=8 --num-inserts=100k --datfile=results/mem.dat
+kill %1
+dr_report.py -o mem_report.html results
+</code></pre>
+<p>On Windows use Performance Monitor or <code>typeperf "\Memory\Committed Bytes" -si 2 -o mem.csv</code> for the same kind of record (the scripts read /proc, so they are Linux only).</p>
+<p class="foot">dr_utils 1.4 documentation, GNU LGPL 3 or later. Made from docs/plots-and-reports.md by docs/make_html.py.</p>
+</div>
+</main>
+</div>
+<script src="search_index.js"></script>
+<script src="dr_utils.js"></script>
+</body>
+</html>

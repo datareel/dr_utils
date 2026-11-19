@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Overview - dr_utils 1.4</title>
+<link rel="stylesheet" href="dr_utils.css">
+</head>
+<body>
+<div class="wrap">
+<nav>
+<p class="title"><a href="index.html">dr_utils 1.4</a></p>
+<input id="q" type="search" placeholder="Search the docs ( / )" aria-label="Search the docs">
+<button id="menu-btn" type="button">Pages</button>
+<ul>
+<li><a href="index.html" class="cur">Overview</a></li>
+<li><a href="install.html">Building and installing</a></li>
+<li><a href="file-tools.html">File tools</a></li>
+<li><a href="network-tools.html">Network tools</a></li>
+<li><a href="benchmarks.html">Benchmarks</a></li>
+<li><a href="sar-cpu-stats.html">sar CPU statistics</a></li>
+<li><a href="plots-and-reports.html">Plots, reports, watch scripts</a></li>
+<li><a href="dashboard-hooks.html">Dashboard hooks</a></li>
+<li><a href="hooks.html">Hook files reference</a></li>
+<li><a href="quick-reference.html">Quick reference</a></li>
+</ul>
+<div class="theme"><button id="theme-btn" type="button">Light / dark</button></div>
+</nav>
+<main>
+<div id="results"></div>
+<div id="content">
+<h1 id="dr_utils-14-documentation">dr_utils 1.4 documentation</h1>
+<p>dr_utils is a set of command line file tools, network tools, system benchmarks and a sar report reader for Windows and Linux, built on the DataReel C++ library 6.4.1. These pages cover every program: what it does, every option, and command lines for both systems.</p>
+<table>
+<thead>
+<tr>
+<th>Page</th>
+<th>What it covers</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="install.html">Building and installing</a></td>
+<td>DataReel 6.4.1, <code>build.sh</code> and <code>build.cmd</code>, zlib, putting the programs on the PATH, privileges, the test suites</td>
+</tr>
+<tr>
+<td><a href="file-tools.html">File tools</a></td>
+<td><code>file_hours</code>, <code>file_purge</code>, <code>filetimes</code></td>
+</tr>
+<tr>
+<td><a href="network-tools.html">Network tools</a></td>
+<td><code>internet-test</code>, <code>pingscan</code>, <code>dnsscan</code>, <code>portscan</code>, <code>netpscan</code>, <code>arpscan</code>, <code>getmac</code></td>
+</tr>
+<tr>
+<td><a href="benchmarks.html">Benchmarks</a></td>
+<td><code>cputest</code>, <code>disktest</code>, <code>memtest</code>, <code>flops</code>, <code>tcpserv</code>/<code>tcptest</code>, <code>udpserv</code>/<code>udptest</code>, <code>mcserv</code>/<code>mctest</code></td>
+</tr>
+<tr>
+<td><a href="sar-cpu-stats.html">sar CPU statistics</a></td>
+<td><code>sar_cpu_stats</code>: averages, peaks, steal and iowait spikes, gaps, CSV</td>
+</tr>
+<tr>
+<td><a href="plots-and-reports.html">Plots, reports and watch scripts</a></td>
+<td><code>--datfile</code> files, <code>dr_plot.py</code>, <code>dr_report.py</code>, <code>watch_system.sh</code>, <code>watch_mem.sh</code>, <code>watch_mem_usage.sh</code></td>
+</tr>
+<tr>
+<td><a href="dashboard-hooks.html">Dashboard: reporting agent hooks</a></td>
+<td><code>--drsm</code>, <code>--submit</code>, the DataReel Reporting Agents for Linux and Windows, DRSM setup, the daily sar job</td>
+</tr>
+<tr>
+<td><a href="quick-reference.html">Quick reference</a></td>
+<td>Every program and option on one page, with exit status</td>
+</tr>
+</tbody>
+</table>
+<h2 id="html-version">HTML version</h2>
+<p><code>docs/html/</code> has the same pages as HTML with a side menu and a search box (press <code>/</code> to search). Open <code>docs/html/index.html</code> in a browser; it works straight from disk on Windows and Linux, with no web server and no network, or copy the folder to a web server. A search can be linked as <code>index.html?q=words</code>.</p>
+<p>The markdown pages are the source. After editing them (or <code>hooks/README.md</code>), rebuild and commit both:</p>
+<pre><code>python3 docs/make_html.py            # Linux (needs python3-markdown, or pip install markdown)
+py docs\make_html.py                 # Windows
+python3 docs/make_html.py --check    # exit 1 if docs/html is out of date
+</code></pre>
+<h2 id="conventions-in-these-pages">Conventions in these pages</h2>
+<ul>
+<li>Linux examples run in bash, with the programs on the PATH (or as <code>bin/&lt;program&gt;</code> from the dr_utils folder).</li>
+<li>Windows examples run in <code>cmd.exe</code> unless they say PowerShell, with the programs on the PATH (or as <code>bin\&lt;program&gt;.exe</code>). The programs are the same on both systems, with the same options.</li>
+<li>Addresses and names in the examples are documentation values: <code>192.0.2.x</code> and <code>example.com</code>. Put in your own.</li>
+<li>Use the network tools and network benchmarks only on networks and hosts you own or are allowed to test. The scan tools scan one /24 at most.</li>
+</ul>
+<h2 id="common-behaviour">Common behaviour</h2>
+<ul>
+<li>Every program prints its version and usage with no arguments (the file and network tools), with <code>-?</code>, or with <code>--help</code> (the benchmarks and <code>sar_cpu_stats</code>). The usage text is the reference these pages were written from.</li>
+<li>Sizes and counts in the benchmarks take decimal suffixes: <code>1k</code> = 1000, <code>1m</code> = 1000000, <code>1g</code> = 1000000000 (upper case works too: <code>150M</code>, <code>1G</code>).</li>
+<li>Wildcards such as <code>*.log</code> work on Windows in <code>cmd.exe</code> and PowerShell, because the programs link <code>setargv.obj</code> and expand them themselves.</li>
+<li>Exit status: each page lists it. On Linux read <code>$?</code>, in <code>cmd.exe</code> read <code>%ERRORLEVEL%</code>, and in PowerShell read <code>$LASTEXITCODE</code>.</li>
+</ul>
+<p class="foot">dr_utils 1.4 documentation, GNU LGPL 3 or later. Made from docs/README.md by docs/make_html.py.</p>
+</div>
+</main>
+</div>
+<script src="search_index.js"></script>
+<script src="dr_utils.js"></script>
+</body>
+</html>

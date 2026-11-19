@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Building and installing - dr_utils 1.4</title>
+<link rel="stylesheet" href="dr_utils.css">
+</head>
+<body>
+<div class="wrap">
+<nav>
+<p class="title"><a href="index.html">dr_utils 1.4</a></p>
+<input id="q" type="search" placeholder="Search the docs ( / )" aria-label="Search the docs">
+<button id="menu-btn" type="button">Pages</button>
+<ul>
+<li><a href="index.html">Overview</a></li>
+<li><a href="install.html" class="cur">Building and installing</a></li>
+<li><a href="file-tools.html">File tools</a></li>
+<li><a href="network-tools.html">Network tools</a></li>
+<li><a href="benchmarks.html">Benchmarks</a></li>
+<li><a href="sar-cpu-stats.html">sar CPU statistics</a></li>
+<li><a href="plots-and-reports.html">Plots, reports, watch scripts</a></li>
+<li><a href="dashboard-hooks.html">Dashboard hooks</a></li>
+<li><a href="hooks.html">Hook files reference</a></li>
+<li><a href="quick-reference.html">Quick reference</a></li>
+</ul>
+<div class="theme"><button id="theme-btn" type="button">Light / dark</button></div>
+</nav>
+<main>
+<div id="results"></div>
+<div id="content">
+<h1 id="building-and-installing">Building and installing</h1>
+<p>dr_utils builds against a DataReel 6.4.1 source tree whose library is already built. Use the same build settings (64-bit, OpenSSL or not) for the library and for dr_utils.</p>
+<h2 id="linux-rhel-8-9-10-and-other-distributions-with-gcc">Linux (RHEL 8, 9, 10 and other distributions with GCC)</h2>
+<p>Packages: <code>gcc-c++</code>, <code>make</code>, <code>zlib-devel</code> (for cputest) and <code>openssl-devel</code> (DataReel builds with OpenSSL by default). On RHEL:</p>
+<pre><code>sudo dnf install gcc-c++ make zlib-devel openssl-devel
+</code></pre>
+<p>Build the library, then dr_utils:</p>
+<pre><code>cd /path/to/datareel-6.4.1/build
+make &amp;&amp; make install                      # makes lib/libdatareel.a in the DataReel tree
+
+cd /path/to/dr_utils
+DATAREEL_DIR=/path/to/datareel-6.4.1 ./build.sh
+ls bin/                                   # the 21 programs
+</code></pre>
+<p><code>build.sh</code> builds each program folder in turn and copies the program to <code>bin/</code>. It stops with a message if <code>$DATAREEL_DIR/lib/libdatareel.a</code> is missing. The exit status is 1 if any program did not build.</p>
+<pre><code>DATAREEL_DIR=/path/to/datareel-6.4.1 ./build.sh clean     # remove objects and bin/ programs
+</code></pre>
+<p>One program at a time:</p>
+<pre><code>cd tools/portscan &amp;&amp; make DATAREEL_DIR=/path/to/datareel-6.4.1
+</code></pre>
+<p>Without OpenSSL, build both the library and dr_utils with <code>USE_OPEN_SSL=NO</code>:</p>
+<pre><code>cd /path/to/datareel-6.4.1/build &amp;&amp; make USE_OPEN_SSL=NO &amp;&amp; make install
+cd /path/to/dr_utils &amp;&amp; DATAREEL_DIR=/path/to/datareel-6.4.1 USE_OPEN_SSL=NO ./build.sh
+</code></pre>
+<h3 id="installing-on-linux">Installing on Linux</h3>
+<p>There is no install target. Copy the programs and scripts you want to a folder on the PATH:</p>
+<pre><code>sudo install -m 0755 bin/* /usr/local/bin/
+sudo install -m 0755 benchmarks/plot/dr_plot.py benchmarks/plot/dr_report.py /usr/local/bin/
+sudo install -m 0755 benchmarks/scripts/watch_*.sh /usr/local/bin/
+</code></pre>
+<p><code>dr_plot.py</code> and <code>dr_report.py</code> need Python 3 with matplotlib (<code>sudo dnf install python3-matplotlib</code>, or <code>pip install matplotlib</code>).</p>
+<p>The reporting agent hook files and the daily sar job have their own installer, see <a href="dashboard-hooks.html">Dashboard</a>.</p>
+<h2 id="windows-visual-studio-2022-or-2026-x64">Windows (Visual Studio 2022 or 2026, x64)</h2>
+<ol>
+<li>Build the DataReel library in <code>%DATAREEL_DIR%\winslib</code> (<code>gxcode64.lib</code>, 64-bit release).</li>
+<li>For cputest, build zlib with the static runtime so it matches DataReel's <code>/MT</code>. In the zlib source folder, from the same prompt:</li>
+</ol>
+<p><code>nmake -f win32\Makefile.msc LOC=-MT zlib.lib</code></p>
+<ol start="3">
+<li>From an <strong>x64 Native Tools Command Prompt</strong>:</li>
+</ol>
+<p><code>set DATAREEL_DIR=C:\src\datareel-6.4.1
+   set ZLIB_DIR=C:\src\zlib
+   cd C:\src\dr_utils
+   build.cmd
+   dir bin</code></p>
+<p><code>build.cmd</code> builds 64-bit release programs (<code>64BITCFG=1 FINAL=1</code>) and copies each <code>.exe</code> to <code>bin\</code>. <code>ZLIB_DIR</code> is a folder with <code>zlib.h</code> and the <code>/MT</code> <code>zlib.lib</code>; without it cputest does not build and the other programs still do. The exit status is 1 if any program did not build.</p>
+<pre><code>build.cmd clean                           &amp; rem remove objects and bin\ programs
+cd tools\portscan &amp;&amp; nmake -f msvc.mak    &amp; rem one program
+</code></pre>
+<h3 id="installing-on-windows">Installing on Windows</h3>
+<p>Copy <code>bin\*.exe</code> to a folder and add it to the PATH, for example from an administrator prompt:</p>
+<pre><code>mkdir &quot;C:\Program Files\dr_utils&quot;
+copy bin\*.exe &quot;C:\Program Files\dr_utils\&quot;
+setx /M PATH &quot;%PATH%;C:\Program Files\dr_utils&quot;
+</code></pre>
+<p><code>setx</code> changes the PATH for new prompts only; open a new prompt afterwards.</p>
+<p>Windows has its own <code>getmac.exe</code> (in <code>System32</code>, it lists the local adapters), which comes first on the PATH. Run the dr_utils one by its full path, or copy it under another name:</p>
+<pre><code>copy bin\getmac.exe &quot;C:\Program Files\dr_utils\dr_getmac.exe&quot;
+</code></pre>
+<p>For <code>dr_plot.py</code> and <code>dr_report.py</code> install Python 3 and matplotlib, then run them with the <code>py</code> launcher:</p>
+<pre><code>py -m pip install matplotlib
+py C:\src\dr_utils\benchmarks\plot\dr_plot.py --help
+</code></pre>
+<h2 id="privileges">Privileges</h2>
+<table>
+<thead>
+<tr>
+<th>What</th>
+<th>Linux</th>
+<th>Windows</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Ping (<code>pingscan</code>, <code>dnsscan -p</code>, <code>arpscan</code>, and the pings in <code>portscan</code>, <code>netpscan</code>, <code>getmac</code>)</td>
+<td>An ICMP datagram socket when <code>net.ipv4.ping_group_range</code> includes the user's group (the RHEL default allows every group); otherwise a raw socket, which needs root or <code>sudo setcap cap_net_raw+ep bin/pingscan</code></td>
+<td><code>IcmpSendEcho</code>, no administrator rights</td>
+</tr>
+<tr>
+<td>MAC addresses (<code>arpscan</code>, <code>getmac</code>)</td>
+<td>Reads <code>/proc/net/arp</code>, no root</td>
+<td><code>SendARP</code>, no administrator rights</td>
+</tr>
+<tr>
+<td>TCP connects, DNS, file tools, benchmarks</td>
+<td>No privileges</td>
+<td>No privileges</td>
+</tr>
+<tr>
+<td><code>--submit</code> to the reporting agent</td>
+<td>root or the <code>drra-upload</code> group</td>
+<td>administrator</td>
+</tr>
+</tbody>
+</table>
+<p>Check the Linux ping setting with <code>sysctl net.ipv4.ping_group_range</code>. <code>0 2147483647</code> allows every group.</p>
+<h2 id="firewall-ports-for-the-network-benchmarks">Firewall ports for the network benchmarks</h2>
+<p>Tests between two hosts need the benchmark ports open on the server or receiver side: TCP 53897 (<code>tcpserv</code>), UDP 53897 (<code>udpserv</code>) and UDP 53898 (<code>mctest</code>).</p>
+<p>Linux (firewalld, until the next reload):</p>
+<pre><code>sudo firewall-cmd --add-port=53897/tcp --add-port=53897/udp --add-port=53898/udp
+</code></pre>
+<p>Windows (administrator prompt):</p>
+<pre><code>netsh advfirewall firewall add rule name=&quot;dr_utils tcpserv&quot; dir=in action=allow protocol=TCP localport=53897
+netsh advfirewall firewall add rule name=&quot;dr_utils udpserv&quot; dir=in action=allow protocol=UDP localport=53897
+netsh advfirewall firewall add rule name=&quot;dr_utils mctest&quot;  dir=in action=allow protocol=UDP localport=53898
+</code></pre>
+<p>Remove them after the test (<code>firewall-cmd --reload</code>, or <code>netsh advfirewall firewall delete rule name="dr_utils tcpserv"</code>).</p>
+<h2 id="tests">Tests</h2>
+<p>The tests touch only 127.0.0.1, a local HTTP server they start, and (for <code>getmac</code> and <code>arpscan</code>) one host already in the machine's ARP table. The benchmark tests use small sizes.</p>
+<pre><code>tests/run_tests.sh                                              # Linux, after build.sh
+powershell -ExecutionPolicy Bypass -File tests\run_tests.ps1   # Windows, after build.cmd
+powershell -ExecutionPolicy Bypass -File tests\run_tests.ps1 -NoLan   # skip the ARP table check
+</code></pre>
+<p><code>tests/hooks_e2e_test.sh</code> runs the dashboard path end to end on one Linux machine, see <a href="dashboard-hooks.html#testing-the-whole-path">Dashboard</a>.</p>
+<h2 id="layout">Layout</h2>
+<table>
+<thead>
+<tr>
+<th>Path</th>
+<th>What</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tools/&lt;name&gt;/</code></td>
+<td>one folder per file or network tool: the source, <code>makefile</code> (Linux), <code>msvc.mak</code> (Windows), <code>project.mak</code> (the objects for both)</td>
+</tr>
+<tr>
+<td><code>benchmarks/&lt;name&gt;/</code></td>
+<td>one folder per benchmark program, laid out the same way</td>
+</tr>
+<tr>
+<td><code>benchmarks/plot/</code></td>
+<td><code>dr_plot.py</code> and <code>dr_report.py</code></td>
+</tr>
+<tr>
+<td><code>benchmarks/scripts/</code></td>
+<td>the Linux watch scripts</td>
+</tr>
+<tr>
+<td><code>system_stats/sar_cpu_stats/</code></td>
+<td>the sar report tool</td>
+</tr>
+<tr>
+<td><code>hooks/</code></td>
+<td>reporting agent hook files, DRSM manifests and install scripts</td>
+</tr>
+<tr>
+<td><code>common/</code></td>
+<td>shared code: ping, connects, DNS, ARP, services files, benchmark sockets, timers, plot files, DRSM lines</td>
+</tr>
+<tr>
+<td><code>env/</code></td>
+<td><code>linux.mak</code> and <code>msvc.mak</code>, the build settings on top of DataReel's</td>
+</tr>
+<tr>
+<td><code>tests/</code></td>
+<td><code>run_tests.sh</code>, <code>run_tests.ps1</code>, <code>hooks_e2e_test.sh</code>, and short sar reports in <code>tests/data/sar/</code></td>
+</tr>
+</tbody>
+</table>
+<p class="foot">dr_utils 1.4 documentation, GNU LGPL 3 or later. Made from docs/install.md by docs/make_html.py.</p>
+</div>
+</main>
+</div>
+<script src="search_index.js"></script>
+<script src="dr_utils.js"></script>
+</body>
+</html>

@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>File tools - dr_utils 1.4</title>
+<link rel="stylesheet" href="dr_utils.css">
+</head>
+<body>
+<div class="wrap">
+<nav>
+<p class="title"><a href="index.html">dr_utils 1.4</a></p>
+<input id="q" type="search" placeholder="Search the docs ( / )" aria-label="Search the docs">
+<button id="menu-btn" type="button">Pages</button>
+<ul>
+<li><a href="index.html">Overview</a></li>
+<li><a href="install.html">Building and installing</a></li>
+<li><a href="file-tools.html" class="cur">File tools</a></li>
+<li><a href="network-tools.html">Network tools</a></li>
+<li><a href="benchmarks.html">Benchmarks</a></li>
+<li><a href="sar-cpu-stats.html">sar CPU statistics</a></li>
+<li><a href="plots-and-reports.html">Plots, reports, watch scripts</a></li>
+<li><a href="dashboard-hooks.html">Dashboard hooks</a></li>
+<li><a href="hooks.html">Hook files reference</a></li>
+<li><a href="quick-reference.html">Quick reference</a></li>
+</ul>
+<div class="theme"><button id="theme-btn" type="button">Light / dark</button></div>
+</nav>
+<main>
+<div id="results"></div>
+<div id="content">
+<h1 id="file-tools">File tools</h1>
+<p>Three small tools for scripts and scheduled jobs: is a file stale, purge old files, and show file times. They are based on work from the 2005 file tools and keep their output lines (<code>YES</code>, <code>NOT</code>, <code>ERR</code>, <code>LST</code>), so existing scripts keep working.</p>
+<p>Ages are measured from the file's modification time. Hours and days can be fractional: <code>0.5</code> hours is 30 minutes, <code>2.5</code> days is 60 hours.</p>
+<h2 id="file_hours">file_hours</h2>
+<p>Says whether a file was last changed <code>numhours</code> ago or more.</p>
+<pre><code>file_hours [-s] filename numhours
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>filename</code></td>
+<td>the file to check</td>
+</tr>
+<tr>
+<td><code>numhours</code></td>
+<td>the age in hours: <code>0.5</code>, <code>1</code>, <code>2.5</code>, <code>36</code> ...</td>
+</tr>
+<tr>
+<td><code>-s</code></td>
+<td>exit status 0 for YES, 1 for NOT, 2 for ERR (for <code>if</code> tests without reading the output)</td>
+</tr>
+</tbody>
+</table>
+<p>Output, one line:</p>
+<table>
+<thead>
+<tr>
+<th>Line</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>YES</code></td>
+<td>the file is <code>numhours</code> old or older</td>
+</tr>
+<tr>
+<td><code>NOT</code></td>
+<td>the file is newer</td>
+</tr>
+<tr>
+<td><code>ERR - &lt;reason&gt;</code></td>
+<td>the file is missing, is not a file, or has a bad time stamp</td>
+</tr>
+</tbody>
+</table>
+<p>Exit status without <code>-s</code>: 0 for YES or NOT, 1 for ERR.</p>
+<p>Linux:</p>
+<pre><code>file_hours /var/spool/feed/latest.dat 2
+# alert when the feed file has not changed in 2 hours
+if [ &quot;$(file_hours /var/spool/feed/latest.dat 2)&quot; = &quot;YES&quot; ]; then
+  echo &quot;feed is stale&quot; | mail -s &quot;feed stale&quot; ops@example.com
+fi
+# the same with the exit status
+if file_hours -s /var/spool/feed/latest.dat 2; then echo &quot;stale&quot;; fi
+</code></pre>
+<p>Windows, <code>cmd.exe</code>:</p>
+<pre><code>file_hours C:\spool\feed\latest.dat 0.5
+file_hours -s C:\spool\feed\latest.dat 2
+if %ERRORLEVEL%==0 echo feed is stale
+</code></pre>
+<p>Windows, PowerShell:</p>
+<pre><code>if ((file_hours C:\spool\feed\latest.dat 2) -eq 'YES') { Write-Warning 'feed is stale' }
+file_hours -s C:\spool\feed\latest.dat 2; if ($LASTEXITCODE -eq 2) { 'cannot check the file' }
+</code></pre>
+<h2 id="file_purge">file_purge</h2>
+<p>Deletes or moves files that are a number of hours or days old, or lists their ages.</p>
+<pre><code>file_purge [switches] file [file ...]
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Switch</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-h&lt;n&gt;</code></td>
+<td>delete each file <code>n</code> hours old or older (<code>-h7</code>, <code>-h0.5</code>)</td>
+</tr>
+<tr>
+<td><code>-d&lt;n&gt;</code></td>
+<td>delete each file <code>n</code> days old or older (<code>-d30</code>, <code>-d2.5</code>)</td>
+</tr>
+<tr>
+<td><code>-m"dir"</code></td>
+<td>with <code>-h</code> or <code>-d</code>: move the file to <code>dir</code> instead of deleting it. Across file systems it is a copy and delete. A file of the same name in <code>dir</code> is never overwritten</td>
+</tr>
+<tr>
+<td><code>-e</code></td>
+<td>delete the file if it exists, with no age check</td>
+</tr>
+<tr>
+<td><code>-l</code></td>
+<td>list each file's age in hours and days, change nothing</td>
+</tr>
+<tr>
+<td><code>-n</code></td>
+<td>dry run: print what would be done (<code>DRY - ...</code>), change nothing</td>
+</tr>
+<tr>
+<td><code>-v</code></td>
+<td>verbose output</td>
+</tr>
+<tr>
+<td><code>-?</code></td>
+<td>the usage text</td>
+</tr>
+</tbody>
+</table>
+<p><code>file</code> names can have wildcards (<code>*.log</code>), on Windows too. Directories are never purged, even when a wildcard matches them. One of <code>-h</code>, <code>-d</code>, <code>-e</code> or <code>-l</code> is needed.</p>
+<p>Each file gets one line:</p>
+<table>
+<thead>
+<tr>
+<th>Line</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>YES - name purged (n) hours</code></td>
+<td>deleted, or <code>moved ... to dir</code></td>
+</tr>
+<tr>
+<td><code>NOT - name not purged (n) hours</code></td>
+<td>too new, or the delete or move failed (<code>error deleting file</code>), or the target name already exists in the <code>-m</code> folder</td>
+</tr>
+<tr>
+<td><code>ERR - name &lt;reason&gt;</code></td>
+<td>missing, not a file, bad time stamp</td>
+</tr>
+<tr>
+<td><code>LST - name (n) hours (n) days</code></td>
+<td>the <code>-l</code> listing</td>
+</tr>
+<tr>
+<td><code>DRY - name would be purged ...</code></td>
+<td>the <code>-n</code> dry run</td>
+</tr>
+</tbody>
+</table>
+<p>Exit status: 0 when the files were checked (look at the lines for what happened to each), 1 on a usage error (bad switch, no file name, missing <code>-m</code> folder).</p>
+<p>Run with <code>-n</code> first, every time.</p>
+<p>Linux:</p>
+<pre><code>file_purge -l /var/log/myapp/*.log            # ages only
+file_purge -n -d30 /var/log/myapp/*.log       # what a 30 day purge would delete
+file_purge -d30 /var/log/myapp/*.log          # delete them
+file_purge -n -m&quot;/archive/myapp&quot; -h12 /var/spool/myapp/*.dat
+file_purge -m&quot;/archive/myapp&quot; -h12 /var/spool/myapp/*.dat
+file_purge -e /var/run/myapp/stale.lock       # delete if it exists
+</code></pre>
+<p>A daily cron line (<code>/etc/cron.d/myapp_purge</code>):</p>
+<pre><code>15 3 * * * root /usr/local/bin/file_purge -d30 /var/log/myapp/*.log &gt; /var/log/myapp_purge.log 2&gt;&amp;1
+</code></pre>
+<p>Windows, <code>cmd.exe</code>:</p>
+<pre><code>file_purge -l C:\logs\myapp\*.log
+file_purge -n -d30 C:\logs\myapp\*.log
+file_purge -d30 C:\logs\myapp\*.log
+file_purge -n -m&quot;D:\archive\myapp&quot; -h12 C:\spool\myapp\*.dat
+file_purge -m&quot;D:\archive\myapp&quot; -h12 C:\spool\myapp\*.dat
+</code></pre>
+<p>Windows, PowerShell (quote the whole <code>-m</code> switch so PowerShell passes it as one argument):</p>
+<pre><code>file_purge -n '-mD:\archive\my app' -h12 C:\spool\myapp\*.dat
+</code></pre>
+<p>A daily scheduled task (administrator prompt):</p>
+<pre><code>schtasks /Create /TN &quot;myapp log purge&quot; /SC DAILY /ST 03:15 /RU SYSTEM /TR &quot;\&quot;C:\Program Files\dr_utils\file_purge.exe\&quot; -d30 C:\logs\myapp\*.log&quot;
+</code></pre>
+<h2 id="filetimes">filetimes</h2>
+<p>Shows a file's access, modification and creation times in local time and GMT, and its age. With several files it can print just the newest or the oldest.</p>
+<pre><code>filetimes [-n | -o] file [file ...]
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-n</code></td>
+<td>print only the name of the newest file (by modification time)</td>
+</tr>
+<tr>
+<td><code>-o</code></td>
+<td>print only the name of the oldest file</td>
+</tr>
+</tbody>
+</table>
+<p>Without <code>-n</code> or <code>-o</code> each file gets a block like this (on Linux the third time is the inode change time, <code>File change time (ctime)</code>; on Windows it is <code>File creation time</code>):</p>
+<pre><code>Reading time stamps for: a.log
+File access time: 11/19/2026  01:11 PM
+File access GMT : Thu, 19 Nov 2026 18:11:41 GMT
+File modification time: 11/19/2026  01:11 PM
+File modification GMT : Thu, 19 Nov 2026 18:11:41 GMT
+File change time (ctime): 11/19/2026  01:11 PM
+File change GMT  (ctime): Thu, 19 Nov 2026 18:11:41 GMT
+File is 0 second(s) old
+</code></pre>
+<p>Exit status 1 if any file cannot be read, or on a usage error.</p>
+<p>Linux:</p>
+<pre><code>filetimes /etc/hosts
+filetimes -n build/*.tar.gz          # the newest build
+latest=$(filetimes -n /data/feed/*.dat) &amp;&amp; process_feed &quot;$latest&quot;
+filetimes -o /var/log/myapp/*.log    # the oldest log
+</code></pre>
+<p>Windows, <code>cmd.exe</code>:</p>
+<pre><code>filetimes C:\Windows\System32\drivers\etc\hosts
+filetimes -n C:\builds\*.zip
+for /f &quot;delims=&quot; %f in ('filetimes -n C:\data\feed\*.dat') do set LATEST=%f
+</code></pre>
+<p>(In a <code>.cmd</code> file write <code>%%f</code> for <code>%f</code>.)</p>
+<p>Windows, PowerShell:</p>
+<pre><code>$latest = filetimes -n C:\data\feed\*.dat
+filetimes -o C:\logs\myapp\*.log
+</code></pre>
+<p class="foot">dr_utils 1.4 documentation, GNU LGPL 3 or later. Made from docs/file-tools.md by docs/make_html.py.</p>
+</div>
+</main>
+</div>
+<script src="search_index.js"></script>
+<script src="dr_utils.js"></script>
+</body>
+</html>
