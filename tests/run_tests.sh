@@ -28,7 +28,8 @@ has() {
   if echo "$OUT" | grep -q -E -- "$2"; then ok "$1"; else bad "$1" "no /$2/ in: $(echo "$OUT" | head -5)"; fi
 }
 
-for t in file_hours file_purge filetimes internet-test pingscan dnsscan portscan netpscan arpscan getmac; do
+for t in file_hours file_purge filetimes internet-test pingscan dnsscan portscan netpscan arpscan getmac \
+         cputest disktest memtest tcpserv tcptest udpserv udptest mcserv mctest; do
   if [ ! -x "$BIN/$t" ]; then echo "$BIN/$t is missing: run ./build.sh first" >&2; exit 2; fi
 done
 
@@ -145,6 +146,54 @@ if [ "$LAN" = 1 ]; then
   else
     echo "skip getmac/arpscan LAN check: no complete entry in /proc/net/arp"
   fi
+fi
+
+echo "--- benchmarks (small sizes, loopback only)"
+check_rc "cputest 2 threads" 0 "$BIN/cputest" --num-threads=2 --buf-size=4m
+has "cputest threads" 'Thread\[1\]: CPU speed test elapsed time'; has "cputest total" '^Total elapsed time .* (KB|MB|GB)/s'
+check_rc "cputest bad size" 1 "$BIN/cputest" --buf-size=abc
+check_rc "cputest unknown switch" 1 "$BIN/cputest" --bogus
+check_rc "disktest 20k" 0 "$BIN/disktest" --num-inserts=20k --file="$WORK/disk.btx" --datfile="$WORK/disk.dat"
+has "disktest phases" 'Reinserted 20000 keys:'; has "disktest entries" 'Number of entries = 20000'
+if [ ! -e "$WORK/disk.btx" ]; then ok "disktest removed its file"; else bad "disktest left its file"; fi
+if grep -q '^write_time=.*,.*' "$WORK/disk.dat" && grep -q '^xticks_str=2K,4K' "$WORK/disk.dat" && grep -q '^\[HOSTINFO\]' "$WORK/disk.dat"; then ok "disktest plot data"; else bad "disktest plot data" "$(head -8 "$WORK/disk.dat")"; fi
+touch "$WORK/exists.btx"
+check_rc "disktest refuses an existing file" 1 "$BIN/disktest" --num-inserts=1k --file="$WORK/exists.btx"
+check_rc "memtest 2 threads" 0 "$BIN/memtest" --num-threads=2 --num-inserts=5k
+has "memtest phases" 'Thread\[1\]: Reinserted 5000 values'; has "memtest average" '^Average thread times'
+if command -v python3 >/dev/null; then
+  TP=$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1]); s.close()')
+  "$BIN/tcpserv" -p$TP -l127.0.0.1 --count=3 > tcpserv.log 2>&1 &
+  SP=$!
+  for i in $(seq 1 50); do python3 -c "import socket; socket.create_connection(('127.0.0.1',$TP),1)" 2>/dev/null && break; sleep 0.1; done
+  # The probe connection above is one bad request; --count counts it
+  check_rc "tcptest upload 2 clients" 0 "$BIN/tcptest" -p$TP -n2 -b65536 -s20M 127.0.0.1
+  has "tcptest total" 'All tests complete: 2 of 2 clients'
+  wait $SP; SRC=$?
+  if [ $SRC = 0 ] && grep -q 'upload 20000000 bytes' tcpserv.log; then ok "tcpserv logged the uploads"; else bad "tcpserv" "$(cat tcpserv.log)"; fi
+  "$BIN/tcpserv" -p$TP -l127.0.0.1 --count=1 > tcpserv2.log 2>&1 &
+  SP=$!; sleep 0.5
+  check_rc "tcptest download" 0 "$BIN/tcptest" -d -p$TP -b65536 -s10M 127.0.0.1; has "tcptest received" 'received 10000000 bytes'
+  wait $SP
+  check_rc "tcptest no server" 1 "$BIN/tcptest" -p$TP -s1M 127.0.0.1
+  check_rc "tcptest bad -b" 1 "$BIN/tcptest" -b10 127.0.0.1
+  UP=$(python3 -c 'import socket; s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM); s.bind(("127.0.0.1",0)); print(s.getsockname()[1]); s.close()')
+  "$BIN/udpserv" -p$UP -l127.0.0.1 --count=2 > udpserv.log 2>&1 &
+  SP=$!; sleep 0.5
+  check_rc "udptest 2 clients at 200M" 0 "$BIN/udptest" -p$UP -n2 -s5M -r200M 127.0.0.1
+  has "udptest report" 'server received [0-9]+ \([0-9.]+% lost'; has "udptest total" 'All tests complete: 2 of 2 clients reported'
+  wait $SP
+  if grep -q 'run .*datagrams' udpserv.log; then ok "udpserv logged the runs"; else bad "udpserv" "$(cat udpserv.log)"; fi
+  check_rc "udptest no server" 1 "$BIN/udptest" -p$UP -s100k 127.0.0.1; has "no report" 'no report from the server'
+  "$BIN/mctest" -n2 -i127.0.0.1 -p$UP --timeout=10 > mctest.log 2>&1 &
+  MP=$!; sleep 0.5
+  check_rc "mcserv on loopback" 0 "$BIN/mcserv" -i127.0.0.1 -p$UP -s2M -r100M; has "mcserv sent" '^Sent 1333 datagrams'
+  wait $MP; MRC=$?
+  if [ $MRC = 0 ] && grep -q 'Receiver\[1\]: run .*1333 datagrams' mctest.log; then ok "mctest received the run"; else bad "mctest" "$(cat mctest.log)"; fi
+  check_rc "mcserv refuses a unicast group" 1 "$BIN/mcserv" -g192.0.2.1
+  check_rc "mcserv ttl limit" 1 "$BIN/mcserv" --ttl=64
+else
+  bad "python3 is needed for the network benchmark tests"
 fi
 
 echo

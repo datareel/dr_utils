@@ -8,7 +8,8 @@
 # File Creation Date: 11/18/2026
 # Date Last Modified: 11/18/2026
 # --------------------------------------------------------------- 
-# Each tool's msvc.mak sets PROJECT and includes this file.
+# Each tool's msvc.mak sets PROJECT and includes this file. A tool
+# that needs another library sets EXTRA_INC and EXTRA_LIBS first.
 #
 # DATAREEL_DIR: a DataReel 6.4.1 tree with the library built in
 # winslib (gxcode64.lib for 64BITCFG=1 FINAL=1). Use the same
@@ -33,7 +34,7 @@ GCODE_LIB_PATH = $(DATAREEL_DIR)
 !include $(DATAREEL_DIR)/winslib/msvc.env
 
 COMMON_DIR = ..\..\common
-COMPILE_FLAGS = $(COMPILE_FLAGS) -I$(COMMON_DIR)
+COMPILE_FLAGS = $(COMPILE_FLAGS) -I$(COMMON_DIR) $(EXTRA_INC)
 DR_CXX = cl
 
 all:	$(PROJECT)$(EXE_EXT)
@@ -58,10 +59,14 @@ LIB_GXCODE = $(GXCODE_LIB_PATH)$(PATHSEP)gxcode32d.lib
 drnet$(OBJ_EXT):	$(COMMON_DIR)\drnet.cpp $(COMMON_DIR)\drnet.h
 	$(DR_CXX) $(COMPILE_ONLY) $(COMPILE_FLAGS) $(COMMON_DIR)\drnet.cpp
 
+# Shared benchmark sockets
+drsock$(OBJ_EXT):	$(COMMON_DIR)\drsock.cpp $(COMMON_DIR)\drsock.h
+	$(DR_CXX) $(COMPILE_ONLY) $(COMPILE_FLAGS) $(COMMON_DIR)\drsock.cpp
+
 # setargv.obj expands wildcards (file_purge *.log)
 $(PROJECT)$(EXE_EXT):	$(OBJECTS)
 	$(LINKER) $(LINKER_FLAGS) $(OBJECTS) $(LIB_GXCODE) \
-	$(LINK_LIBRARIES) ws2_32.lib iphlpapi.lib setargv.obj /OUT:$@
+	$(EXTRA_LIBS) $(LINK_LIBRARIES) ws2_32.lib iphlpapi.lib setargv.obj /OUT:$@
 
 clean:
 	if exist *.obj del *.obj

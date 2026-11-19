@@ -1,4 +1,4 @@
-# dr_utils 1.0
+# dr_utils 1.1
 
 Small command line file and network tools for Windows and Linux, built on the [DataReel](https://datareel.com) C++ library, version 6.4.1. They are open source (GNU LGPL 3) versions of tools Douglas Gaer wrote from 1999 to 2010. DataReel 7.4 does not already have them.
 
@@ -15,7 +15,18 @@ Small command line file and network tools for Windows and Linux, built on the [D
 | `arpscan` | Lists the MAC address (and vendor) of each host on a local /24 network |
 | `getmac` | Shows the MAC address of one host on a local network |
 
-Use the network tools only on networks and hosts you own or are allowed to test. They scan one /24 at most.
+It also has system benchmarks for CPU, disk, memory, TCP, UDP and multicast:
+
+| Benchmark | What it measures |
+|---|---|
+| `cputest` | CPU speed: zlib best compression and uncompression of random data, in one or more threads |
+| `disktest` | Disk speed for database index work: a DataReel B-tree file, with insert, find, delete and insert-again phases, and plot data |
+| `memtest` | Memory speed: binary search tree insert, find and delete of string keys, in one or more threads |
+| `tcpserv`, `tcptest` | TCP bandwidth, upload or download, with one or more clients |
+| `udpserv`, `udptest` | UDP bandwidth and loss, with one or more clients |
+| `mcserv`, `mctest` | Multicast rate, loss and order from one sender to one or more receivers |
+
+Use the network tools and benchmarks only on networks and hosts you own or are allowed to test. The scan tools scan one /24 at most.
 
 ## License
 
@@ -34,7 +45,7 @@ DATAREEL_DIR=/path/to/datareel-6.4.1 ./build.sh            # programs in bin/
 tests/run_tests.sh
 ```
 
-DataReel builds with OpenSSL by default (openssl-devel). Use `USE_OPEN_SSL=NO` for both the library and dr_utils on a system without it. One tool: `cd tools/portscan && make DATAREEL_DIR=...`.
+cputest needs zlib (zlib-devel). DataReel builds with OpenSSL by default (openssl-devel). Use `USE_OPEN_SSL=NO` for both the library and dr_utils on a system without it. One tool: `cd tools/portscan && make DATAREEL_DIR=...`.
 
 ### Windows (Visual Studio 2022 or 2026, x64)
 
@@ -42,12 +53,13 @@ Build the DataReel library in `%DATAREEL_DIR%\winslib` (gxcode64.lib, 64-bit rel
 
 ```
 set DATAREEL_DIR=C:\path\to\datareel-6.4.1
+set ZLIB_DIR=C:\path\to\zlib     (for cputest: zlib.h and a /MT zlib.lib)
 cd \path\to\dr_utils
 build.cmd
 powershell -ExecutionPolicy Bypass -File tests\run_tests.ps1
 ```
 
-`build.cmd` builds 64-bit release programs (`64BITCFG=1 FINAL=1`) into `bin\`. One tool: `cd tools\portscan` and `nmake -f msvc.mak`. The programs link `setargv.obj`, so wildcards such as `*.log` work in cmd.exe.
+`build.cmd` builds 64-bit release programs (`64BITCFG=1 FINAL=1`) into `bin\`. One tool: `cd tools\portscan` and `nmake -f msvc.mak`. For cputest, build zlib with the static runtime so it matches DataReel's /MT: in the zlib source folder, `nmake -f win32\Makefile.msc LOC=-MT zlib.lib`. The programs link `setargv.obj`, so wildcards such as `*.log` work in cmd.exe.
 
 ## Privileges
 
@@ -159,12 +171,70 @@ getmac hostname [ethernet_device]
 
 Shows the host's names, pings it and prints `MAC Address: XX:XX:XX:XX:XX:XX`. The exit status is 1 if there is no ARP entry. Windows has its own `getmac.exe`, which lists the local adapters. Run this one by its full path, or rename it, if both are on the PATH.
 
+## Benchmark reference
+
+Sizes and counts take decimal suffixes: `1k` is 1000, `1m` is 1000000, `1g` is 1000000000, the same units as the 2002-2019 benchmarks. Times are wall clock. Every benchmark prints its usage with `-?` or `--help`.
+
+### cputest
+
+```
+cputest [--num-threads=NUM] [--buf-size=SIZE] [--repeat=NUM]
+```
+
+Fills a buffer (default 100m) with random bytes and splits it between the threads (default 1). Each thread compresses its part with zlib at level 9, uncompresses it and checks that it matches. The output has each thread's time, the average, and the total time with the rate. Run it with one thread for single-core speed and one thread per core for the whole CPU.
+
+### disktest
+
+```
+disktest [--num-inserts=NUM] [--file=fname] [--keep] [--datfile=fname]
+```
+
+Creates a DataReel B-tree index file (order 128, default `testfile.btx` in the current folder; use `--file` to put it on the disk under test). It then inserts, finds, deletes (checking each delete) and inserts again NUM keys (default 1m), with the time at every 10%. `--datfile` writes the times in the old disk benchmark plot format (`[DISKBENCHMARK]`, `[PLOTINFO]`, `[HOSTINFO]`). The file is removed at the end unless `--keep` is given, and an existing file is never overwritten.
+
+### memtest
+
+```
+memtest [--num-threads=NUM] [--num-inserts=NUM]
+```
+
+Each thread builds its own unbalanced binary search tree of "Item n" strings (default 25k keys, at most 1m) and times the insert, find, delete and insert-again phases. The keys arrive nearly sorted, so the tree is deep and the time grows faster than the key count. Compare runs that use the same `--num-inserts`.
+
+### tcpserv and tcptest
+
+```
+tcpserv [-p port] [-l address] [--count=N] [--timeout=S] [--max-bytes=SIZE]
+tcptest [-b size] [-d] [-n clients] [-p port] [-s bytes] server
+```
+
+Start `tcpserv` on one host (port 53897 by default, all addresses unless `-l` is given), then run `tcptest` on another. Each client connects and uploads `-s` bytes (default 150M) in `-b` byte writes (default 1500). With `-d` it downloads them instead. The server confirms the byte count, and each client and the total print their rates. The server runs until Ctrl-C, or until `--count` transfers are done. Clients cannot stop or restart it.
+
+### udpserv and udptest
+
+```
+udpserv [-p port] [-l address] [--count=N]
+udptest [-b size] [-n clients] [-p port] [-r rate] [-s bytes] server
+```
+
+The clients send numbered datagrams of `-b` bytes (default 1500, at most 65507) to `udpserv`. They send as fast as the host can, or at `-r` bits a second per client (for example `-r500M`). At the end the server reports what arrived, and each client prints its send rate, its receive rate and the loss.
+
+### mcserv and mctest
+
+```
+mctest [-g group] [-i address] [-n receivers] [-p port] [--timeout=S]
+mcserv [-b size] [-g group] [-i address] [-p port] [-r rate] [-s bytes] [--seconds=N] [--ttl=N] [--no-loop]
+```
+
+Start one or more `mctest` receivers, then run `mcserv`. The sender sends `-s` bytes (default 150M) of numbered datagrams to the group (default 239.255.10.10, port 53898) at `-r` bits a second (default 100M), then sends end-of-run datagrams. Each receiver prints what it got: datagrams, loss, out-of-order count and rate. The defaults are cautious: TTL 1 keeps the traffic on the local network, and the group is administratively scoped. `-i` picks the interface; `-i127.0.0.1` on both ends keeps a test on one host.
+
+Allow the benchmark ports (TCP 53897, UDP 53897 and 53898) in the host firewalls for tests between hosts.
+
 ## Layout
 
 | Path | What |
 |---|---|
 | `tools/<name>/` | one folder per tool: source, `makefile` (Linux), `msvc.mak` (Windows), `project.mak` (objects for both) |
-| `common/` | `drnet.h/.cpp` (ping, TCP connect with a timeout, DNS, ARP, ranges, services files) and `drutil.h` (file ages) |
+| `benchmarks/<name>/` | one folder per benchmark program, laid out the same way |
+| `common/` | `drnet.h/.cpp` (ping, TCP connect with a timeout, DNS, ARP, ranges, services files), `drsock.h/.cpp` (benchmark sockets and wire formats), `drbench.h` (timers, sizes, pacing) and `drutil.h` (file ages) |
 | `env/` | `linux.mak` and `msvc.mak`, the build settings on top of DataReel's |
 | `tests/` | `run_tests.sh` (Linux) and `run_tests.ps1` (Windows) |
 
@@ -175,6 +245,7 @@ Shows the host's names, pings it and prints `MAC Address: XX:XX:XX:XX:XX:XX`. Th
 | file_hours, file_purge, filetimes | Douglas Gaer's 2005 file tools |
 | internet-test | the 2005 Internet connectivity test |
 | pingscan, dnsscan, portscan, netpscan, arpscan, getmac | the 1999-2010 network scan programs |
+| cputest, disktest, memtest, tcpserv/tcptest, udpserv/udptest, mcserv/mctest | the 2002-2010 bmarks programs and their 2016-2019 versions in work_programs/benchmarks |
 
 The 1.0 versions keep the original switches and output lines, and fix these problems in the old versions:
 
@@ -183,3 +254,10 @@ The 1.0 versions keep the original switches and output lines, and fix these prob
 - One failed ping stopped a sweep.
 - The Windows ARP lookup ran `arp -a` into a file in the current folder.
 - Windows needed administrator rights for ICMP.
+
+In the benchmarks (1.1):
+
+- Times were clock() sums, which on Linux count the CPU time of every thread.
+- UDP and multicast loss was never measured.
+- A client could shut down or restart a server over the network.
+- The multicast sender flooded the network until it was stopped.

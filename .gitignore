@@ -14,5 +14,16 @@ tools/*/portscan
 tools/*/netpscan
 tools/*/arpscan
 tools/*/getmac
+benchmarks/*/cputest
+benchmarks/*/disktest
+benchmarks/*/memtest
+benchmarks/*/tcpserv
+benchmarks/*/tcptest
+benchmarks/*/udpserv
+benchmarks/*/udptest
+benchmarks/*/mcserv
+benchmarks/*/mctest
+benchmarks/*/*.dat
+benchmarks/*/*.btx
 bin/
 tests/work/

@@ -34,7 +34,8 @@ function FreePort {
   $l.Start(); $p = $l.LocalEndpoint.Port; $l.Stop(); return $p
 }
 
-foreach ($t in 'file_hours','file_purge','filetimes','internet-test','pingscan','dnsscan','portscan','netpscan','arpscan','getmac') {
+foreach ($t in 'file_hours','file_purge','filetimes','internet-test','pingscan','dnsscan','portscan','netpscan','arpscan','getmac',
+             'cputest','disktest','memtest','tcpserv','tcptest','udpserv','udptest','mcserv','mctest') {
   if (-not (Test-Path (Join-Path $Bin "$t.exe"))) { Write-Output "$Bin\$t.exe is missing: run build.cmd first"; exit 2 }
 }
 
@@ -130,6 +131,43 @@ if (-not $NoLan) {
     Write-Output 'skip getmac/arpscan LAN check: no neighbor entry'
   }
 }
+
+Write-Output '--- benchmarks (small sizes, loopback only)'
+CheckRc 'cputest 2 threads' 0 'cputest' @('--num-threads=2','--buf-size=4m'); Has 'cputest threads' 'Thread\[1\]: CPU speed test elapsed time'; Has 'cputest total' 'Total elapsed time .* (KB|MB|GB)/s'
+CheckRc 'cputest bad size' 1 'cputest' @('--buf-size=abc')
+CheckRc 'disktest 20k' 0 'disktest' @('--num-inserts=20k',"--file=$Work\disk.btx","--datfile=$Work\disk.dat")
+Has 'disktest phases' 'Reinserted 20000 keys:'; Has 'disktest entries' 'Number of entries = 20000'
+if (-not (Test-Path "$Work\disk.btx")) { Ok 'disktest removed its file' } else { Bad 'disktest left its file' }
+$dat = Get-Content "$Work\disk.dat" -Raw
+if ($dat -match '(?m)^xticks_str=2K,4K' -and $dat -match '\[HOSTINFO\]') { Ok 'disktest plot data' } else { Bad 'disktest plot data' }
+CheckRc 'memtest 2 threads' 0 'memtest' @('--num-threads=2','--num-inserts=5k'); Has 'memtest phases' 'Thread\[1\]: Reinserted 5000 values'
+
+function StartBg($exe, [string[]]$a, $log) {
+  return Start-Process -FilePath (Join-Path $Bin "$exe.exe") -ArgumentList $a -NoNewWindow -PassThru -RedirectStandardOutput $log -RedirectStandardError "$log.err"
+}
+$TP = FreePort
+$srv = StartBg 'tcpserv' @("-p$TP",'-l127.0.0.1','--count=2') "$Work\tcpserv.log"
+Start-Sleep -Milliseconds 700
+CheckRc 'tcptest upload 2 clients' 0 'tcptest' @("-p$TP",'-n2','-b65536','-s20M','127.0.0.1'); Has 'tcptest total' 'All tests complete: 2 of 2 clients'
+$srv.WaitForExit(20000) | Out-Null
+if ((Get-Content "$Work\tcpserv.log" -Raw) -match 'upload 20000000 bytes') { Ok 'tcpserv logged the uploads' } else { Bad 'tcpserv log' }
+$srv = StartBg 'tcpserv' @("-p$TP",'-l127.0.0.1','--count=1') "$Work\tcpserv2.log"
+Start-Sleep -Milliseconds 700
+CheckRc 'tcptest download' 0 'tcptest' @('-d',"-p$TP",'-b65536','-s10M','127.0.0.1'); Has 'tcptest received' 'received 10000000 bytes'
+$srv.WaitForExit(20000) | Out-Null
+CheckRc 'tcptest no server' 1 'tcptest' @("-p$TP",'-s1M','127.0.0.1')
+$UP = FreePort
+$srv = StartBg 'udpserv' @("-p$UP",'-l127.0.0.1','--count=2') "$Work\udpserv.log"
+Start-Sleep -Milliseconds 700
+CheckRc 'udptest 2 clients at 200M' 0 'udptest' @("-p$UP",'-n2','-s5M','-r200M','127.0.0.1'); Has 'udptest report' 'server received \d+ \([0-9.]+% lost'
+$srv.WaitForExit(20000) | Out-Null
+if ((Get-Content "$Work\udpserv.log" -Raw) -match 'run .*datagrams') { Ok 'udpserv logged the runs' } else { Bad 'udpserv log' }
+$rcv = StartBg 'mctest' @('-n2','-i127.0.0.1',"-p$UP",'--timeout=10') "$Work\mctest.log"
+Start-Sleep -Milliseconds 700
+CheckRc 'mcserv on loopback' 0 'mcserv' @('-i127.0.0.1',"-p$UP",'-s2M','-r100M'); Has 'mcserv sent' 'Sent 1333 datagrams'
+$rcv.WaitForExit(20000) | Out-Null
+if ((Get-Content "$Work\mctest.log" -Raw) -match 'Receiver\[1\]: run .*1333 datagrams') { Ok 'mctest received the run' } else { Bad 'mctest' (Get-Content "$Work\mctest.log" -Raw) }
+CheckRc 'mcserv refuses a unicast group' 1 'mcserv' @('-g192.0.2.1')
 
 Write-Output ''
 Write-Output "$($script:pass) passed, $($script:fail) failed"

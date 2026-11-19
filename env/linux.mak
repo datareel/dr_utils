@@ -8,7 +8,8 @@
 # File Creation Date: 11/18/2026
 # Date Last Modified: 11/18/2026
 # --------------------------------------------------------------- 
-# Each tool's makefile sets PROJECT and includes this file.
+# Each tool's makefile sets PROJECT and includes this file. A tool
+# that needs another library sets EXTRA_INC and EXTRA_LIBS first.
 #
 # DATAREEL_DIR: a DataReel 6.4.1 tree with the library built
 # (cd $DATAREEL_DIR/build && make && make install). Set it in the environment or on
@@ -22,7 +23,7 @@ GCODE_LIB_DIR = $(DATAREEL_DIR)
 include $(DATAREEL_DIR)/env/linux.env
 
 COMMON_DIR = ../../common
-COMPILE_FLAGS += -I$(COMMON_DIR)
+COMPILE_FLAGS += -I$(COMMON_DIR) $(EXTRA_INC)
 DR_CXX = $(CXX)
 LIB_GXCODE = $(DATAREEL_DIR)/lib/libdatareel.a
 
@@ -34,9 +35,13 @@ include project.mak
 drnet$(OBJ_EXT):	$(COMMON_DIR)/drnet.cpp $(COMMON_DIR)/drnet.h
 	$(DR_CXX) $(COMPILE_ONLY) $(COMPILE_FLAGS) $(COMMON_DIR)/drnet.cpp
 
+# Shared benchmark sockets
+drsock$(OBJ_EXT):	$(COMMON_DIR)/drsock.cpp $(COMMON_DIR)/drsock.h
+	$(DR_CXX) $(COMPILE_ONLY) $(COMPILE_FLAGS) $(COMMON_DIR)/drsock.cpp
+
 $(PROJECT):	$(OBJECTS) $(LIB_GXCODE)
 	$(DR_CXX) $(COMPILE_FLAGS) $(OBJECTS) $(LIB_GXCODE) \
-	$(LINK_LIBRARIES) $(OUTPUT) $(PROJECT) $(LINKER_FLAGS)
+	$(EXTRA_LIBS) $(LINK_LIBRARIES) $(OUTPUT) $(PROJECT) $(LINKER_FLAGS)
 
 clean:
 	rm -f *.o $(PROJECT)

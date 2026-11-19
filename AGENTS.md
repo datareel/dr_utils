@@ -1,13 +1,14 @@
 # AGENTS.md: notes for AI coding assistants
 
-dr_utils is a set of small command line file and network tools on the DataReel C++ library 6.4.1, for Windows and Linux. Read README.md first.
+dr_utils is a set of small command line file and network tools and system benchmarks on the DataReel C++ library 6.4.1, for Windows and Linux. Read README.md first.
 
 ## Rules
 
 - License: GNU LGPL 3 or later. Every source file has the DataReel LGPL 3 header; new files get the same header. Credit the original program in the header's Changes.
 - No credentials, real host names, internal addresses or email addresses in code, tests or docs. Examples use 192.168.1.x, 192.0.2.x and example.com.
 - The tests touch only 127.0.0.1, a local HTTP server and (getmac/arpscan) one host already in the machine's ARP table. Do not add tests that scan other hosts or networks.
-- The network tools scan one /24 at most. Keep that limit.
+- The network tools scan one /24 at most. Keep that limit. The multicast sender keeps TTL 1 and a rate limit by default.
+- Benchmark tests use small sizes and 127.0.0.1 only (multicast with -i127.0.0.1).
 - No build output in commits (`*.o`, `*.obj`, `*.exe`, `bin/`). Stage explicit paths.
 - Commit messages: no Co-Authored-By, model names or session lines.
 
