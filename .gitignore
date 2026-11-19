@@ -1,0 +1,18 @@
+# Build output
+*.o
+*.obj
+*.exe
+*.pdb
+*.ilk
+tools/*/file_hours
+tools/*/file_purge
+tools/*/filetimes
+tools/*/internet-test
+tools/*/pingscan
+tools/*/dnsscan
+tools/*/portscan
+tools/*/netpscan
+tools/*/arpscan
+tools/*/getmac
+bin/
+tests/work/
