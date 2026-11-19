@@ -35,7 +35,7 @@ function FreePort {
 }
 
 foreach ($t in 'file_hours','file_purge','filetimes','internet-test','pingscan','dnsscan','portscan','netpscan','arpscan','getmac',
-             'cputest','disktest','memtest','tcpserv','tcptest','udpserv','udptest','mcserv','mctest') {
+             'cputest','disktest','memtest','tcpserv','tcptest','udpserv','udptest','mcserv','mctest','flops','sar_cpu_stats') {
   if (-not (Test-Path (Join-Path $Bin "$t.exe"))) { Write-Output "$Bin\$t.exe is missing: run build.cmd first"; exit 2 }
 }
 
@@ -168,6 +168,17 @@ CheckRc 'mcserv on loopback' 0 'mcserv' @('-i127.0.0.1',"-p$UP",'-s2M','-r100M')
 $rcv.WaitForExit(20000) | Out-Null
 if ((Get-Content "$Work\mctest.log" -Raw) -match 'Receiver\[1\]: run .*1333 datagrams') { Ok 'mctest received the run' } else { Bad 'mctest' (Get-Content "$Work\mctest.log" -Raw) }
 CheckRc 'mcserv refuses a unicast group' 1 'mcserv' @('-g192.0.2.1')
+
+Write-Output '--- flops and sar_cpu_stats'
+CheckRc 'flops 2 threads' 0 'flops' @('--num-threads=2','--iterations=100m'); Has 'flops rate' 'Total elapsed time .* (MFLOPS|GFLOPS)'
+CheckRc 'flops --dp' 0 'flops' @('--dp','--iterations=50m')
+$Sar = Join-Path $Top 'tests\data\sar'
+CheckRc 'sar RHEL 5' 0 'sar_cpu_stats' @("$Sar\sar_rhel5_partial.txt"); Has 'rhel5 samples' '52 samples of all CPUs, every 10 minutes'
+CheckRc 'sar RHEL 10' 0 'sar_cpu_stats' @("$Sar\sar_rhel10.txt"); Has 'rhel10 iowait spikes' 'iowait >= 20.0%: 4'
+CheckRc 'sar gap' 0 'sar_cpu_stats' @("$Sar\sar_gap.txt"); Has 'gap listed' 'gap: no samples for 70 minutes before 2018-09-30 01:40:01'
+CheckRc 'sar steal spike' 0 'sar_cpu_stats' @("$Sar\sar_steal_spike.txt"); Has '241 flagged' 'steal 241.45'; Has 'day stops' 'gap: samples stop at 2018-09-24 00:10:01'
+CheckRc 'sar --alarm' 3 'sar_cpu_stats' @('--alarm',"$Sar\sar_steal_spike.txt")
+CheckRc 'sar csv' 0 'sar_cpu_stats' @('--csv','--all-cpus',"$Sar\sar_rhel7_ampm.txt"); Has 'csv row' 'rhel7-2.example.com,2018-09-30 00:10:01,all,0.33,0.00,0.24,0.25,0.00,0.00,0.00,0.00,0.00,99.19,ok'
 
 Write-Output ''
 Write-Output "$($script:pass) passed, $($script:fail) failed"

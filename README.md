@@ -1,4 +1,4 @@
-# dr_utils 1.1
+# dr_utils 1.2
 
 Small command line file and network tools for Windows and Linux, built on the [DataReel](https://datareel.com) C++ library, version 6.4.1. They are open source (GNU LGPL 3) versions of tools Douglas Gaer wrote from 1999 to 2010. DataReel 7.4 does not already have them.
 
@@ -25,6 +25,13 @@ It also has system benchmarks for CPU, disk, memory, TCP, UDP and multicast:
 | `tcpserv`, `tcptest` | TCP bandwidth, upload or download, with one or more clients |
 | `udpserv`, `udptest` | UDP bandwidth and loss, with one or more clients |
 | `mcserv`, `mctest` | Multicast rate, loss and order from one sender to one or more receivers |
+| `flops` | Floating point operations per second, single or double precision, in one or more threads |
+
+And a system statistics tool:
+
+| Tool | What it does |
+|---|---|
+| `sar_cpu_stats` | Reads sar text reports: CPU averages and peaks, steal and iowait spikes, gaps and impossible samples, or every sample as CSV |
 
 Use the network tools and benchmarks only on networks and hosts you own or are allowed to test. The scan tools scan one /24 at most.
 
@@ -228,12 +235,43 @@ Start one or more `mctest` receivers, then run `mcserv`. The sender sends `-s` b
 
 Allow the benchmark ports (TCP 53897, UDP 53897 and 53898) in the host firewalls for tests between hosts.
 
+### flops
+
+```
+flops [--num-threads=NUM] [--dp] [--iterations=NUM]
+```
+
+Runs multiply-add chains over a small array that stays in the CPU cache, in single precision (or double with `--dp`). The iterations (default 1g) are split between the threads. It prints MFLOPS or GFLOPS. The rate depends on the compiler and its flags (vector units), so compare machines with the same build.
+
+### Plot and watch scripts
+
+- `benchmarks/plot/plot_disk_benchmark.py disk.dat [disk.png] [--averages]` plots a `disktest --datfile` file. It needs Python 3 with matplotlib.
+- `benchmarks/scripts/watch_system.sh [-i sec] [-n count] [STATSONLY]` records the release, kernel, CPU, memory and disk statistics from /proc (between `START name` and `END name` lines), then runs `top -b` while a benchmark runs (Linux).
+- `benchmarks/scripts/watch_mem.sh` prints `free` and /proc/meminfo every interval. `watch_mem_usage.sh` prints one "date time used-KB" line per interval, for plotting (Linux).
+
+## sar_cpu_stats
+
+```
+sar_cpu_stats [--csv [--all-cpus]] [--steal=PCT] [--iowait=PCT] [--list=N] [--alarm] sar_file [sar_file ...]
+```
+
+Reads sar text reports (`LC_ALL=C sar -u -f /var/log/sa/saDD > file.txt`, or `sar -P ALL`, or a whole `sar -A` report, one day or many days in a file). It works with RHEL 5 to RHEL 10 sysstat: 12- or 24-hour times, `%user` or `%usr`, with or without the newer columns. For the "all" CPU rows it prints:
+
+- the average and peak of user, nice, system, iowait, steal, irq, soft, guest, gnice and idle (the lowest idle), with the peak times;
+- steal and iowait spikes over the thresholds (default 10% and 20%);
+- gaps: a missing run of samples inside a day, or a day whose samples stop early while later days follow (a host or VM that stopped writing);
+- bad samples: a percent over 100, or parts that do not add up to about 100. A VM the hypervisor stopped can write steal of 241%. Bad samples are listed and left out of the averages.
+
+`--csv` writes every sample instead, as `host,time,cpu,user,...,idle,ok|bad`. `--all-cpus` adds the per-CPU rows. `--alarm` sets exit status 3 when there are spikes, gaps or bad samples, for cron. The reports are plain text, so the tool reads them on Windows too. `tests/data/sar` has short example reports.
+
 ## Layout
 
 | Path | What |
 |---|---|
 | `tools/<name>/` | one folder per tool: source, `makefile` (Linux), `msvc.mak` (Windows), `project.mak` (objects for both) |
-| `benchmarks/<name>/` | one folder per benchmark program, laid out the same way |
+| `benchmarks/<name>/` | one folder per benchmark program, laid out the same way; `benchmarks/plot` and `benchmarks/scripts` |
+| `system_stats/sar_cpu_stats/` | the sar report tool |
+| `tests/data/sar/` | short sar reports for the tests |
 | `common/` | `drnet.h/.cpp` (ping, TCP connect with a timeout, DNS, ARP, ranges, services files), `drsock.h/.cpp` (benchmark sockets and wire formats), `drbench.h` (timers, sizes, pacing) and `drutil.h` (file ages) |
 | `env/` | `linux.mak` and `msvc.mak`, the build settings on top of DataReel's |
 | `tests/` | `run_tests.sh` (Linux) and `run_tests.ps1` (Windows) |
@@ -246,6 +284,8 @@ Allow the benchmark ports (TCP 53897, UDP 53897 and 53898) in the host firewalls
 | internet-test | the 2005 Internet connectivity test |
 | pingscan, dnsscan, portscan, netpscan, arpscan, getmac | the 1999-2010 network scan programs |
 | cputest, disktest, memtest, tcpserv/tcptest, udpserv/udptest, mcserv/mctest | the 2002-2010 bmarks programs and their 2016-2019 versions in work_programs/benchmarks |
+| flops, plot_disk_benchmark.py, watch scripts | work_programs/benchmarks (2009-2019) |
+| sar_cpu_stats | the 2018 system_stats_analysis_tool read_cpu_stats (unfinished there) |
 
 The 1.0 versions keep the original switches and output lines, and fix these problems in the old versions:
 
@@ -255,9 +295,10 @@ The 1.0 versions keep the original switches and output lines, and fix these prob
 - The Windows ARP lookup ran `arp -a` into a file in the current folder.
 - Windows needed administrator rights for ICMP.
 
-In the benchmarks (1.1):
+In the benchmarks (1.1 and 1.2):
 
 - Times were clock() sums, which on Linux count the CPU time of every thread.
 - UDP and multicast loss was never measured.
 - A client could shut down or restart a server over the network.
 - The multicast sender flooded the network until it was stopped.
+- The old flops loop's result was never used, so an optimizing compiler removed the loop and the test timed nothing.

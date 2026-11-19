@@ -19,7 +19,7 @@ if [ ! -f "$DATAREEL_DIR/lib/libdatareel.a" ]; then
   exit 2
 fi
 TOOLS="tools/file_hours tools/file_purge tools/filetimes tools/internet-test tools/pingscan tools/dnsscan tools/portscan tools/netpscan tools/arpscan tools/getmac"
-TOOLS="$TOOLS benchmarks/cputest benchmarks/disktest benchmarks/memtest benchmarks/tcpserv benchmarks/tcptest benchmarks/udpserv benchmarks/udptest benchmarks/mcserv benchmarks/mctest"
+TOOLS="$TOOLS benchmarks/cputest benchmarks/disktest benchmarks/memtest benchmarks/tcpserv benchmarks/tcptest benchmarks/udpserv benchmarks/udptest benchmarks/mcserv benchmarks/mctest benchmarks/flops system_stats/sar_cpu_stats"
 fail=0
 mkdir -p "$TOP/bin"
 for dir in $TOOLS; do

@@ -23,6 +23,8 @@ benchmarks/*/udpserv
 benchmarks/*/udptest
 benchmarks/*/mcserv
 benchmarks/*/mctest
+benchmarks/*/flops
+system_stats/*/sar_cpu_stats
 benchmarks/*/*.dat
 benchmarks/*/*.btx
 bin/

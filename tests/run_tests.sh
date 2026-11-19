@@ -29,7 +29,7 @@ has() {
 }
 
 for t in file_hours file_purge filetimes internet-test pingscan dnsscan portscan netpscan arpscan getmac \
-         cputest disktest memtest tcpserv tcptest udpserv udptest mcserv mctest; do
+         cputest disktest memtest tcpserv tcptest udpserv udptest mcserv mctest flops sar_cpu_stats; do
   if [ ! -x "$BIN/$t" ]; then echo "$BIN/$t is missing: run ./build.sh first" >&2; exit 2; fi
 done
 
@@ -195,6 +195,42 @@ if command -v python3 >/dev/null; then
 else
   bad "python3 is needed for the network benchmark tests"
 fi
+
+echo "--- flops, plot and watch scripts"
+check_rc "flops 2 threads" 0 "$BIN/flops" --num-threads=2 --iterations=100m; has "flops rate" 'Total elapsed time .* (MFLOPS|GFLOPS)'
+check_rc "flops --dp" 0 "$BIN/flops" --dp --iterations=50m; has "flops dp" 'Thread\[0\]: Double precision'
+check_rc "flops bad iterations" 1 "$BIN/flops" --iterations=10
+if python3 -c 'import matplotlib' 2>/dev/null; then
+  check_rc "plot_disk_benchmark.py PNG" 0 python3 "$TOP/benchmarks/plot/plot_disk_benchmark.py" "$WORK/disk.dat" "$WORK/disk.png"
+  if file "$WORK/disk.png" | grep -q 'PNG image'; then ok "plot PNG file"; else bad "plot PNG file"; fi
+  check_rc "plot --averages" 0 python3 "$TOP/benchmarks/plot/plot_disk_benchmark.py" --averages "$WORK/disk.dat" "$WORK/disk_avg.png"
+else
+  bad "python3 matplotlib is needed for the plot test (python3-matplotlib)"
+fi
+check_rc "watch_mem_usage.sh -n 2" 0 "$TOP/benchmarks/scripts/watch_mem_usage.sh" -n 2 -i 1; has "mem lines" '^[0-9-]+ [0-9:]+ [0-9]+$'
+check_rc "watch_mem.sh -n 1" 0 "$TOP/benchmarks/scripts/watch_mem.sh" -n 1; has "meminfo" 'MemTotal:'
+check_rc "watch_system.sh STATSONLY" 0 "$TOP/benchmarks/scripts/watch_system.sh" STATSONLY; has "sections" 'END DISKSTATS'
+
+echo "--- sar_cpu_stats"
+SAR="$TOP/tests/data/sar"
+check_rc "sar RHEL 5" 0 "$BIN/sar_cpu_stats" "$SAR/sar_rhel5_partial.txt"; has "rhel5 samples" '52 samples of all CPUs, every 10 minutes'; has "rhel5 user" 'user +0\.'
+if echo "$OUT" | grep -q 'gnice'; then bad "rhel5 has no gnice column"; else ok "rhel5 missing columns not shown"; fi
+check_rc "sar RHEL 7 AM/PM" 0 "$BIN/sar_cpu_stats" "$SAR/sar_rhel7_ampm.txt"; has "rhel7 samples" '42 samples'
+check_rc "sar RHEL 10" 0 "$BIN/sar_cpu_stats" "$SAR/sar_rhel10.txt"; has "rhel10 interval" 'every 1 seconds'; has "rhel10 iowait spikes" 'iowait >= 20.0%: 4'
+check_rc "sar gap" 0 "$BIN/sar_cpu_stats" "$SAR/sar_gap.txt"; has "gap listed" 'gap: no samples for 70 minutes before 2018-09-30 01:40:01'
+check_rc "sar steal spike" 0 "$BIN/sar_cpu_stats" "$SAR/sar_steal_spike.txt"
+has "241 flagged" 'bad sample at 2018-09-24 00:00:00: steal 241.45'; has "day stops" 'gap: samples stop at 2018-09-24 00:10:01'; has "counts" 'gaps: 1, bad samples: 2'
+check_rc "sar --alarm" 3 "$BIN/sar_cpu_stats" --alarm "$SAR/sar_steal_spike.txt"
+check_rc "sar --alarm clean" 0 "$BIN/sar_cpu_stats" --alarm "$SAR/sar_rhel7_ampm.txt"
+check_rc "sar --steal=0.01 --iowait=5" 0 "$BIN/sar_cpu_stats" --iowait=5 "$SAR/sar_rhel7_ampm.txt"
+check_rc "sar csv" 0 "$BIN/sar_cpu_stats" --csv --all-cpus "$SAR/sar_rhel7_ampm.txt"
+has "csv header" '^host,time,cpu,user,nice,system,iowait,steal,irq,soft,guest,gnice,idle,sample$'
+has "csv row" '^rhel7-2.example.com,2018-09-30 00:10:01,all,0.33,0.00,0.24,0.25,0.00,0.00,0.00,0.00,0.00,99.19,ok$'
+has "csv per cpu" ',2018-09-30 00:10:01,5,'
+check_rc "sar csv rhel5 empty columns" 0 "$BIN/sar_cpu_stats" --csv "$SAR/sar_rhel5_partial.txt"; has "empty cols" ',0.00,,,,,99.28,ok$'
+check_rc "sar two files" 0 "$BIN/sar_cpu_stats" "$SAR/sar_rhel5_partial.txt" "$SAR/sar_gap.txt"
+check_rc "sar no CPU data" 1 "$BIN/sar_cpu_stats" "$SAR/README.md"
+check_rc "sar missing file" 1 "$BIN/sar_cpu_stats" "$SAR/none.txt"
 
 echo
 echo "$pass passed, $fail failed"

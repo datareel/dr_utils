@@ -44,7 +44,7 @@ Changes:
 #include "futils.h"
 
 // dr_utils release, printed by every tool's help and version output
-#define DR_UTILS_VERSION "1.1"
+#define DR_UTILS_VERSION "1.2"
 
 // File age results
 const int DRUTIL_AGE_OK = 0;
