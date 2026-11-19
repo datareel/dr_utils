@@ -1,0 +1,410 @@
+==========
+Benchmarks
+==========
+
+System benchmarks for CPU, floating point, memory, disk, TCP, UDP and
+multicast. They are based on work from the 2002-2010 bmarks programs and their
+2016-2019 versions, with the problems of the old versions fixed (wall clock
+times, measured UDP and multicast loss, no remote server shutdown, a
+rate-limited multicast sender, a flops loop the compiler cannot remove).
+
+All of them:
+
+- print their usage with -? or --help and their version with --version
+  (cputest, disktest, memtest, flops) or in the first output line;
+- take decimal sizes and counts: 1k = 1000, 1m = 1000000, 1g = 1000000000
+  (150M, 1G too);
+- time with the wall clock;
+- take --datfile=fname to write the results as a plot data file for dr_plot.py
+  and dr_report.py [plots-and-reports.txt] (all but the three servers);
+- take --drsm=fname, --submit[=ID], --now, --drra=path and --drra-config=ini
+  to send the results to the DRSM dashboard through the reporting agent (all
+  but the three servers), see Dashboard [dashboard-hooks.txt].
+
+Compare results only between runs with the same settings and the same build
+(compiler and flags). Run the network benchmarks only between hosts you own or
+are allowed to test.
+
+cputest
+-------
+
+CPU speed: zlib best compression (level 9) and uncompression of random data,
+checked after each pass.
+
+    cputest [--num-threads=NUM] [--buf-size=SIZE] [--repeat=NUM] [--datfile=fname] [dashboard options]
+
+--num-threads=NUM
+    threads (default 1, at most 1024)
+
+--buf-size=SIZE
+    the buffer of random bytes, split between the threads: 24k, 240m, 2.4g
+    (default 100m)
+
+--repeat=NUM
+    passes over the buffer (default 1)
+
+--datfile=fname
+    write a plot data file
+
+Output: each thread's time, the average, and the total time with the rate in
+MB/s.
+
+    Threads: 2, buffer 10M bytes, 1 pass(es)
+    Thread[1]: CPU speed test elapsed time 0.229 seconds
+    Thread[0]: CPU speed test elapsed time 0.244 seconds
+    Average thread time 0.237 seconds
+    Total elapsed time 0.245 seconds, 40.88 MB/s
+
+Run it with one thread for single-core speed and one thread per core for the
+whole CPU.
+
+Linux:
+
+    cputest
+    cputest --num-threads=$(nproc) --buf-size=1g --datfile=cpu_$(hostname -s).dat
+    cputest --num-threads=1 --repeat=5
+
+Windows:
+
+    cputest
+    cputest --num-threads=%NUMBER_OF_PROCESSORS% --buf-size=1g --datfile=cpu_%COMPUTERNAME%.dat
+
+PowerShell: cputest --num-threads=$env:NUMBER_OF_PROCESSORS --buf-size=1g
+
+flops
+-----
+
+Floating point operations per second: multiply-add chains over a small array
+that stays in the CPU cache.
+
+    flops [--num-threads=NUM] [--dp] [--div] [--iterations=NUM] [--datfile=fname] [dashboard options]
+
+--num-threads=NUM
+    threads (default 1, at most 1024); the iterations are split between them
+
+--dp
+    double precision (the default is single precision)
+
+--div
+    the formula of the old c/flops program, a*c + a/b: a multiply, a divide
+    and an add, counted as 3 operations. Code with divisions runs slower than
+    multiply-add, so this gives the rate such code gets
+
+--iterations=NUM
+    loop iterations in all: 1m, 1g, 10g (default 1g)
+
+--datfile=fname
+    write a plot data file
+
+Output: each thread's time and the total rate in MFLOPS or GFLOPS. The rate
+depends on the compiler and its flags (vector units).
+
+Linux:
+
+    flops
+    flops --num-threads=$(nproc) --dp --iterations=10g
+    flops --div --dp --datfile=flops_div.dat
+
+Windows:
+
+    flops --num-threads=%NUMBER_OF_PROCESSORS% --dp --iterations=10g
+    flops --div --datfile=flops_div.dat
+
+memtest
+-------
+
+Memory speed: each thread builds its own binary search tree of "Item n" string
+keys and times the insert, find, delete and insert-again phases.
+
+    memtest [--num-threads=NUM] [--num-inserts=NUM] [--datfile=fname] [dashboard options]
+
+Option             Meaning
+-----------------  --------------------------------------------------------
+--num-threads=NUM  threads (default 1, at most 1024)
+--num-inserts=NUM  keys per thread: 1k, 25k, 100k (default 25k, at most 1m)
+--datfile=fname    write a plot data file
+
+The keys arrive nearly sorted, so the tree is deep and the time grows faster
+than the key count: compare runs with the same --num-inserts.
+
+    Threads: 1, 5000 key insertions per thread
+    Thread[0]: Inserted 5000 values in 0.013 seconds
+    Thread[0]: Found 5000 values in 0.011 seconds
+    Thread[0]: Deleted 5000 values in 0.007 seconds
+    Thread[0]: Reinserted 5000 values in 0.012 seconds
+    Average thread times: insert 0.013, find 0.011, delete 0.007, reinsert 0.012 seconds
+    Total elapsed time 0.044 seconds
+
+Linux and Windows (the same command lines):
+
+    memtest
+    memtest --num-threads=4 --num-inserts=50k --datfile=mem.dat
+
+disktest
+--------
+
+Disk speed for database index work: a DataReel B-tree index file (order 128)
+gets NUM key inserts, finds, deletes (each delete checked) and inserts again,
+with the time at every 10%.
+
+    disktest [--num-inserts=NUM] [--file=fname] [--keep] [--datfile=fname] [dashboard options]
+
+--num-inserts=NUM
+    keys: 1k, 1m, 1g (default 1m)
+
+--file=fname
+    the B-tree test file (default testfile.btx in the current folder). Put it
+    on the disk you want to test. An existing file is never overwritten
+
+--keep
+    keep the test file (by default it is removed at the end)
+
+--datfile=fname
+    write the times in the disk benchmark plot format ([DISKBENCHMARK],
+    [PLOTINFO], [HOSTINFO])
+
+The output has a line at every 10% of each phase, the phase total with keys a
+second, and the B-tree statistics:
+
+    Reinserted 10000 keys: 0.072 seconds, 137998 keys a second
+
+    Root address =      54264
+    Number of entries = 10000
+    B-Tree order =      128
+    B-Tree height =     3
+    Disk speed test elapsed time 0.271 seconds
+
+Linux:
+
+    disktest --file=/data/testfile.btx
+    disktest --num-inserts=10m --file=/mnt/nfs01/testfile.btx --datfile=disk_nfs01.dat
+
+Windows:
+
+    disktest --file=D:\bench\testfile.btx
+    disktest --num-inserts=10m --file=\\fileserver.example.com\share\testfile.btx --datfile=disk_share.dat
+
+tcpserv and tcptest
+-------------------
+
+TCP bandwidth, upload or download, with one or more clients. Start tcpserv on
+one host, then run tcptest on another.
+
+    tcpserv [-p port] [-l address] [--count=N] [--timeout=S] [--max-bytes=SIZE]
+    tcptest [-b size] [-d] [-n clients] [-p port] [-s bytes] [--datfile=fname] [dashboard options] server
+
+tcpserv:
+
+-p<port>
+    port, 1024 to 65535 (default 53897)
+
+-l<address>
+    listen on this IPv4 address only (default: all addresses)
+
+--count=N
+    exit after N transfers; each client is one transfer (default: run until
+    Ctrl-C)
+
+--timeout=S
+    close a client idle for S seconds (default 30)
+
+--max-bytes=SIZE
+    the largest transfer accepted (default 100g)
+
+tcptest:
+
+Switch           Meaning
+---------------  ------------------------------------------------
+-b<size>         write or read size, 64 to 1048576 (default 1500)
+-d               download from the server (default: upload to it)
+-n<clients>      clients, 1 to 1000 (default 1)
+-p<port>         port (default 53897)
+-s<bytes>        bytes per client, 1K to 100G (default 150M)
+--datfile=fname  write a plot data file
+
+The server confirms each byte count. Each client and the total print their
+rates. Clients cannot stop or restart the server. Exit status of tcptest: 0 if
+every client finished, 1 otherwise. Allow TCP 53897 in the server's firewall
+(see install [install.txt]).
+
+Linux, server and client:
+
+    tcpserv                                   # on 192.0.2.10, Ctrl-C to stop
+    tcpserv -l192.0.2.10 --count=4            # exit after 4 transfers
+
+    tcptest 192.0.2.10                        # one client, 150M upload
+    tcptest -n4 -b65536 -s1G 192.0.2.10       # four clients, 1G each
+    tcptest -d -n4 -b65536 -s1G --datfile=tcp_down.dat 192.0.2.10
+
+Windows, the same switches:
+
+    tcpserv -p53897
+    tcptest -n4 -b65536 -s1G --datfile=tcp_up.dat 192.0.2.10
+
+Example output:
+
+    Connecting 4 clients to 192.0.2.10 port 53897, 1G bytes each, 65536 byte buffers, upload
+    Client[0]: sent 1000000000 bytes in 9.312 seconds, 107.39 MB/s
+    ...
+    All tests complete: 4 of 4 clients, 4000000000 bytes in 36.950 seconds, 108.25 MB/s
+
+udpserv and udptest
+-------------------
+
+UDP bandwidth and loss with one or more clients.
+
+    udpserv [-p port] [-l address] [--count=N]
+    udptest [-b size] [-n clients] [-p port] [-r rate] [-s bytes] [--datfile=fname] [dashboard options] server
+
+udpserv:
+
+Switch       Meaning
+-----------  ----------------------------------------------------
+-p<port>     port (default 53897)
+-l<address>  listen on this IPv4 address only
+--count=N    exit after N client runs (default: run until Ctrl-C)
+
+udptest:
+
+-b<size>
+    datagram size, 32 to 65507 (default 1500)
+
+-n<clients>
+    clients, 1 to 1000
+
+-p<port>
+    port (default 53897)
+
+-r<rate>
+    send rate per client in bits a second: -r100M, -r1G (default: as fast as
+    the host can)
+
+-s<bytes>
+    bytes per client, 1K to 100G (default 150M)
+
+--datfile=fname
+    write a plot data file
+
+The clients send numbered datagrams. At the end the server reports what
+arrived, and each client prints its send rate, the server's receive rate, the
+loss and the out-of-order count. Exit status of udptest: 0 if every client got
+a report, 1 otherwise. Allow UDP 53897 in the server's firewall.
+
+    Client[0]: sent 3333 datagrams in 0.199 seconds, 25.17 MB/s; server received 3333 (0.00% lost, 0 out of order), 25.18 MB/s
+    All tests complete: 1 of 1 clients reported, 3333 of 3333 datagrams received (0.00% lost), 25.18 MB/s received
+
+Without -r the loss shows what the network and the server dropped at full
+speed; with -r you can find the rate a link carries without loss.
+
+Linux:
+
+    udpserv                                         # on 192.0.2.10
+    udptest -s100M -r500M 192.0.2.10
+    udptest -n4 -b8972 -r1G --datfile=udp.dat 192.0.2.10   # jumbo frames (MTU 9000)
+
+Windows:
+
+    udpserv -p53897
+    udptest -s100M -r500M 192.0.2.10
+
+mcserv and mctest
+-----------------
+
+Multicast rate, loss and order from one sender (mcserv) to one or more
+receivers (mctest). Start the receivers first.
+
+    mctest [-g group] [-i address] [-n receivers] [-p port] [--timeout=S] [--datfile=fname] [dashboard options] [group]
+    mcserv [-b size] [-g group] [-i address] [-p port] [-r rate] [-s bytes] [--seconds=N] [--ttl=N] [--no-loop]
+
+mctest (receiver):
+
+Switch              Meaning
+------------------  ----------------------------------------------------
+-g<group> or group  multicast group (default 239.255.10.10)
+-i<address>         join on the interface with this IPv4 address
+-n<number>          receivers in this process, 1 to 100
+-p<port>            port (default 53898)
+--timeout=S         stop when nothing arrives for S seconds (default 60)
+--datfile=fname     write a plot data file
+
+mcserv (sender):
+
+-b<size>
+    datagram size, 32 to 65507 (default 1500)
+
+-g<group>
+    multicast group, 224.0.0.0 to 239.255.255.255 (default 239.255.10.10)
+
+-i<address>
+    send from the interface with this IPv4 address
+
+-p<port>
+    port (default 53898)
+
+-r<rate>
+    send rate in bits a second: -r10M, -r1G (default 100M)
+
+-s<bytes>
+    bytes to send, 1K to 100G (default 150M)
+
+--seconds=N
+    stop after N seconds even if bytes are left
+
+--ttl=N
+    multicast TTL, 1 to 32 (default 1: the local network only)
+
+--no-loop
+    do not deliver to receivers on this host
+
+The sender sends numbered datagrams at the rate, then end-of-run datagrams.
+Each receiver prints the datagrams, loss, out-of-order count and rate. The
+defaults are cautious: TTL 1 and an administratively scoped group keep the
+traffic on the local network. Exit status of mctest: 0 if every receiver saw
+the end of a run, 1 otherwise. Allow UDP 53898 on the receivers.
+
+Linux, on two hosts of one network:
+
+    mctest -i192.0.2.21 --datfile=mc.dat           # receiver on 192.0.2.21
+    mcserv -i192.0.2.10 -r200M -s500M              # sender on 192.0.2.10
+
+On one host (loopback, a quick check):
+
+    mctest -i127.0.0.1 &
+    mcserv -i127.0.0.1 -s10M
+
+Windows, the same switches (start the receiver in its own prompt):
+
+    start "mctest" mctest -i192.0.2.21 --datfile=mc.dat
+    mcserv -i192.0.2.10 -r200M -s500M
+
+Example output:
+
+    Receiver[0]: joined multicast group 239.255.10.10 port 53898
+    Receiver[0]: run 1435795080: 3333 of 3333 datagrams (0.00% lost, 0 out of order), 4999500 bytes in 0.399 seconds, 12.52 MB/s
+    All tests complete: 1 of 1 receivers saw the end of a run
+
+A sizing run
+------------
+
+Linux, one folder of results for a host, then an HTML report (see Plots and
+reports [plots-and-reports.txt]):
+
+    mkdir -p results
+    cputest --num-threads=$(nproc) --datfile=results/cpu.dat
+    flops --num-threads=$(nproc) --dp --datfile=results/flops.dat
+    memtest --num-threads=4 --datfile=results/mem.dat
+    disktest --file=/data/testfile.btx --datfile=results/disk.dat
+    tcptest -n4 -s1G --datfile=results/tcp.dat 192.0.2.10
+    dr_report.py -o sizing.html --title "sizing $(hostname -s)" results
+
+Windows:
+
+    mkdir results
+    cputest --num-threads=%NUMBER_OF_PROCESSORS% --datfile=results\cpu.dat
+    flops --num-threads=%NUMBER_OF_PROCESSORS% --dp --datfile=results\flops.dat
+    memtest --num-threads=4 --datfile=results\mem.dat
+    disktest --file=D:\bench\testfile.btx --datfile=results\disk.dat
+    tcptest -n4 -s1G --datfile=results\tcp.dat 192.0.2.10
+    py C:\src\dr_utils\benchmarks\plot\dr_report.py -o sizing.html --title "sizing %COMPUTERNAME%" results
+
+(dr_utils 1.4 documentation, made from docs/benchmarks.md by docs/make_html.py)

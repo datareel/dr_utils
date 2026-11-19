@@ -19,20 +19,22 @@
 # License along with this library. If not, see
 # <https://www.gnu.org/licenses/>.
 #
-# Builds the HTML documentation in docs/html/ from the markdown pages
-# in docs/ and hooks/README.md: one page each, a side menu, and a
-# search box that works offline (the search index is a script file,
-# so the pages also work opened straight from disk, file://).
+# Builds the HTML documentation in docs/html/ and the plain text
+# documentation in docs/txt/ from the markdown pages in docs/ and
+# hooks/README.md. HTML: one page each, a side menu, and a search box
+# that works offline (the search index is a script file, so the pages
+# also work opened straight from disk, file://). Text: one .txt file
+# each, 78 columns, for a terminal, less, Notepad or a printer.
 #
-#   python3 docs/make_html.py            write docs/html/
-#   python3 docs/make_html.py --check    exit 1 if docs/html/ is out of date
+#   python3 docs/make_html.py            write docs/html/ and docs/txt/
+#   python3 docs/make_html.py --check    exit 1 if either is out of date
 #
 # Needs Python 3 with the markdown package (python3-markdown, or
 # pip install markdown). Edit the markdown, then run this script and
 # commit both.
 #
 # Changes:
-# 11/19/2026: First version.
+# 11/19/2026: First version. Plain text pages in docs/txt/.
 # -----------------------------------------------------------
 
 import argparse
@@ -235,9 +237,135 @@ def sections(body_html, page_title, page_url):
     return index
 
 
+# ---- Plain text pages -------------------------------------------------
+WIDTH = 78
+
+
+def inline_text(s):
+    # Markdown inline markup to plain text
+    s = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', link_text, s)
+    s = s.replace('\\|', '|')
+    s = re.sub(r'\*\*([^*]+)\*\*', r'\1', s)
+    s = re.sub(r'`([^`]+)`', r'\1', s)
+    return s
+
+
+def link_text(m):
+    label, target = m.group(1), m.group(2)
+    if re.match(r'[a-z]+:', target):
+        return '%s <%s>' % (label, target)
+    page = re.sub(r'#.*$', '', target)
+    for s, o, _ in PAGES:
+        if page and o.replace('.html', '') == os.path.basename(page).replace('.md', ''):
+            return '%s [%s]' % (label, o.replace('.html', '.txt'))
+        if page.endswith('hooks/README.md'):
+            return '%s [hooks.txt]' % label
+    if not page:
+        return label
+    return '%s (%s)' % (label, page)
+
+
+def wrap(text, first='', rest=''):
+    import textwrap
+    return textwrap.fill(text, WIDTH, initial_indent=first,
+                         subsequent_indent=rest, break_long_words=False,
+                         break_on_hyphens=False)
+
+
+def table_text(rows):
+    rows = [[inline_text(c.strip()) for c in r] for r in rows]
+    head, body = rows[0], rows[1:]
+    n = len(head)
+    widths = [max(len(r[i]) if i < len(r) else 0 for r in rows) for i in range(n)]
+    if sum(widths) + 2 * (n - 1) <= WIDTH:
+        line = lambda r: '  '.join((r[i] if i < len(r) else '').ljust(widths[i])
+                                   for i in range(n)).rstrip()
+        out = [line(head), '  '.join('-' * w for w in widths)]
+        out += [line(r) for r in body]
+        return '\n'.join(out)
+    # Too wide: the first column as a label, the others below it
+    out = []
+    for r in body:
+        out.append(wrap(r[0]))
+        for i in range(1, n):
+            if i < len(r) and r[i]:
+                label = head[i] + ': ' if n > 2 else ''
+                out.append(wrap(label + r[i], '    ', '    '))
+        out.append('')
+    return '\n'.join(out).rstrip()
+
+
+def md_to_text(md, title):
+    lines = md.split('\n')
+    out, i = [], 0
+    para = []
+
+    def flush():
+        if para:
+            out.append(wrap(inline_text(' '.join(para))))
+            out.append('')
+            para.clear()
+    while i < len(lines):
+        ln = lines[i]
+        if ln.startswith('```'):
+            flush()
+            i += 1
+            while i < len(lines) and not lines[i].startswith('```'):
+                out.append(('    ' + lines[i]).rstrip())
+                i += 1
+            out.append('')
+        elif re.match(r'#{1,6} ', ln):
+            flush()
+            level = len(ln) - len(ln.lstrip('#'))
+            h = inline_text(ln[level:].strip())
+            if level == 1:
+                out += ['=' * len(h), h, '=' * len(h), '']
+            elif level == 2:
+                out += ['', h, '-' * len(h), '']
+            else:
+                out += [h, '~' * len(h), '']
+        elif ln.startswith('|'):
+            flush()
+            rows = []
+            while i < len(lines) and lines[i].startswith('|'):
+                cells = re.split(r'(?<!\\)\|', lines[i].strip()[1:-1])
+                if not all(re.match(r'^\s*:?-+:?\s*$', c) for c in cells):
+                    rows.append(cells)
+                i += 1
+            out += [table_text(rows), '']
+            continue
+        elif re.match(r'\s*([-*]|\d+\.) ', ln):
+            flush()
+            m = re.match(r'(\s*)([-*]|\d+\.) (.*)', ln)
+            ind, mark, text = len(m.group(1)), m.group(2), m.group(3)
+            i += 1
+            while (i < len(lines) and lines[i].strip() and
+                   not re.match(r'\s*([-*]|\d+\.) ', lines[i]) and
+                   not lines[i].lstrip().startswith('```') and
+                   lines[i].startswith(' ')):
+                text += ' ' + lines[i].strip()
+                i += 1
+            bullet = '-' if mark in '-*' else mark
+            pad = ' ' * ind
+            out.append(wrap(inline_text(text), pad + bullet + ' ',
+                            pad + ' ' * (len(bullet) + 1)))
+            if i < len(lines) and not lines[i].strip():
+                out.append('')
+            continue
+        elif not ln.strip():
+            flush()
+        else:
+            para.append(ln.strip())
+        i += 1
+    flush()
+    text = '\n'.join(out)
+    text = re.sub(r'\n{3,}', '\n\n', text).strip() + '\n'
+    return text
+
+
 def build():
     version = open(os.path.join(TOP, 'version.txt')).read().strip()
-    files = {'dr_utils.css': CSS.lstrip(), 'dr_utils.js': JS.lstrip()}
+    files = {'html/dr_utils.css': CSS.lstrip(), 'html/dr_utils.js': JS.lstrip()}
     index = []
     for src, out, title in PAGES:
         text = open(os.path.join(TOP, src), encoding='utf-8').read()
@@ -251,10 +379,14 @@ def build():
             '<li><a href="%s"%s>%s</a></li>' %
             (o, ' class="cur"' if o == out else '', html.escape(t))
             for _, o, t in PAGES)
-        files[out] = TEMPLATE.format(title=html.escape(title), version=version,
+        txt = md_to_text(open(os.path.join(TOP, src), encoding='utf-8').read(), title)
+        files['txt/' + out.replace('.html', '.txt')] = (
+            txt + '\n(dr_utils %s documentation, made from %s by docs/make_html.py)\n'
+            % (version, src))
+        files['html/' + out] = TEMPLATE.format(title=html.escape(title), version=version,
                                      menu=menu, body=body, source=src)
         index.extend(sections(body, title, out))
-    files['search_index.js'] = ('// Made by docs/make_html.py\nvar DRU_INDEX = ' +
+    files['html/search_index.js'] = ('// Made by docs/make_html.py\nvar DRU_INDEX = ' +
                                 json.dumps(index, indent=0, ensure_ascii=False) +
                                 ';\n')
     return files
@@ -263,12 +395,12 @@ def build():
 def main():
     ap = argparse.ArgumentParser(description='Build docs/html from the markdown docs')
     ap.add_argument('--check', action='store_true',
-                    help='exit 1 if docs/html is out of date, change nothing')
+                    help='exit 1 if docs/html or docs/txt is out of date, change nothing')
     args = ap.parse_args()
     files = build()
     stale = []
     for name, data in files.items():
-        path = os.path.join(OUT, name)
+        path = os.path.join(HERE, name)
         old = None
         if os.path.exists(path):
             with open(path, encoding='utf-8') as f:
@@ -277,15 +409,15 @@ def main():
             stale.append(name)
     if args.check:
         for name in stale:
-            print('out of date: docs/html/' + name)
+            print('out of date: docs/' + name)
         return 1 if stale else 0
-    os.makedirs(OUT, exist_ok=True)
     for name in stale:
-        tmp = os.path.join(OUT, name + '.new')
+        os.makedirs(os.path.dirname(os.path.join(HERE, name)), exist_ok=True)
+        tmp = os.path.join(HERE, name + '.new')
         with open(tmp, 'w', encoding='utf-8', newline='\n') as f:
             f.write(files[name])
-        os.replace(tmp, os.path.join(OUT, name))
-    print('docs/html: %d file(s) written, %d up to date' %
+        os.replace(tmp, os.path.join(HERE, name))
+    print('docs/html, docs/txt: %d file(s) written, %d up to date' %
           (len(stale), len(files) - len(stale)))
     return 0
 
