@@ -32,7 +32,7 @@ name, a ping, and every open port with its service name. An audit of
 your own hosts for unexpected listeners.
 
 Changes:
-11/18/2026: dr_utils version, based on Douglas Gaer's 1999-2004
+11/18/2026: dr_utils version, based on work from the 1999-2004
 netpscan program. A connect timeout (-t, default 500 ms), -p for a
 port list, and by default only the services file ports below 1024
 (-A for every TCP entry; a current /etc/services has thousands).

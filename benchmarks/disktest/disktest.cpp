@@ -34,7 +34,7 @@ data format of the 2016-2019 disk benchmark ([DISKBENCHMARK],
 [PLOTINFO] and [HOSTINFO] sections).
 
 Changes:
-11/18/2026: dr_utils version, based on Douglas Gaer's 2002-2019 disk
+11/18/2026: dr_utils version, based on work from the 2002-2019 disk
 benchmark (bmarks.disk, then benchmarks/src/disktest), with the same
 phases, B-tree order (128) and plot data keys. Times are wall clock
 (the old version summed clock() around each call). New: --file to

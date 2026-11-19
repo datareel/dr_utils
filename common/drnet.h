@@ -47,8 +47,8 @@ winsock2.h before the DataReel headers.
 - A services file reader (name port/protocol aliases # comment).
 
 Changes:
-11/18/2026: First version for dr_utils, based on the network code of
-Douglas Gaer's 1999-2010 scan programs (pingscan, dnsscan, portscan,
+11/18/2026: First version for dr_utils, based on work from the network code of
+the 1999-2010 scan programs (pingscan, dnsscan, portscan,
 netpscan, arpscan, getmac).
 */
 // ----------------------------------------------------------- //

@@ -34,7 +34,7 @@ address, DNS name, MAC address and, with a vendor file, the vendor.
 A LAN inventory of your own networks.
 
 Changes:
-11/18/2026: dr_utils version, based on Douglas Gaer's 1999-2008
+11/18/2026: dr_utils version, based on work from the 1999-2008
 arpscan program. The MAC address comes from /proc/net/arp on Linux
 (no SIOCGARP ioctl, so the interface name is optional) and from
 SendARP on Windows (the 1999 version ran "arp -a" into a file in

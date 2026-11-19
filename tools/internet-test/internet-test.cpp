@@ -33,7 +33,7 @@ passes, so a startup script can wait for the network before it
 starts a job that needs it.
 
 Changes:
-11/18/2026: dr_utils version, based on Douglas Gaer's 2005
+11/18/2026: dr_utils version, based on work from the 2005
 internet-test program. -c sets the number of tries (the 2005 version
 tried forever), -w the wait between tries, -t a connect timeout, -p
 the port; -q prints only the result. Each failure says which step

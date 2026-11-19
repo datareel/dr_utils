@@ -32,7 +32,7 @@ prints the name of the newest file and -o the oldest (build and feed
 freshness checks).
 
 Changes:
-11/18/2026: dr_utils version, based on Douglas Gaer's 2005 filetimes
+11/18/2026: dr_utils version, based on work from the 2005 filetimes
 program. Several files at once, -n/-o to compare them, ages in
 days/hours/minutes/seconds. On Linux "creation" is the inode change
 time (ctime).

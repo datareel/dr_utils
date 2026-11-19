@@ -34,7 +34,7 @@ adapters). This one finds the MAC address of another host; use the
 full path or rename it if both are on the PATH.
 
 Changes:
-11/18/2026: dr_utils version, based on Douglas Gaer's 1999-2004
+11/18/2026: dr_utils version, based on work from the 1999-2004
 getmac program (Linux only, root, SIOCGARP). Now Linux and Windows,
 no root for the lookup (/proc/net/arp or SendARP); the interface
 name is optional.

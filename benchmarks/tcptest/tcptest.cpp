@@ -33,7 +33,7 @@ number of bytes in writes of the buffer size, or download them with
 confirmed the byte count, then the total rate of all clients.
 
 Changes:
-11/18/2026: dr_utils version, based on Douglas Gaer's 2002-2019 TCP
+11/18/2026: dr_utils version, based on work from the 2002-2019 TCP
 benchmark client (bmarks.tcp, then benchmarks/src/tcptest), with the
 same switches and defaults (-b1500 -n1 -p53897 -s150M). The server
 confirms every byte count, times are wall clock, and a total line

@@ -32,7 +32,7 @@ scripts and cron jobs (a feed that stopped writing, a log that is
 no longer updated).
 
 Changes:
-11/18/2026: dr_utils version, based on Douglas Gaer's 2005 file_hours
+11/18/2026: dr_utils version, based on work from the 2005 file_hours
 program. Fractional hours work below one hour (0.5 is 30 minutes;
 the 2005 version said NOT for any file under one hour old). Output
 ends with a new line. -s sets the exit status from the answer.

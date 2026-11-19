@@ -37,7 +37,7 @@ The rate depends on the compiler and its flags (vector units): use
 the same build to compare machines.
 
 Changes:
-11/18/2026: dr_utils version, based on Douglas Gaer's 2016-2019 FLOPS
+11/18/2026: dr_utils version, based on work from the 2016-2019 FLOPS
 benchmark (work_programs benchmarks/src/flops), with the same
 switches (--num-threads, --dp, --iterations). The old loop had a
 result that was never used, so an optimizing compiler removed it and

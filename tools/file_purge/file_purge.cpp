@@ -38,7 +38,7 @@ LST - name (n) hours (n) days      -l listing
 DRY - name would be purged ...     -n dry run, nothing changed
 
 Changes:
-11/18/2026: dr_utils version, based on Douglas Gaer's 2005
+11/18/2026: dr_utils version, based on work from the 2005
 file_purge program (version 1.5), with the same switches. New: -n
 dry run. Fixed: ages under one hour or one day were counted as zero
 (-h0.5 never purged a 40 minute old file, -d0.5 never purged a 20

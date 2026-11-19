@@ -26,7 +26,7 @@
 #   STATSONLY   one line and exit
 #
 # Changes:
-# 11/18/2026: dr_utils version, based on Douglas Gaer's 2009-2017
+# 11/18/2026: dr_utils version, based on work from the 2009-2017
 # benchmark watch script: a time on each line, -i and -n.
 # -----------------------------------------------------------
 interval=1; count=0

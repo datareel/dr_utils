@@ -34,7 +34,7 @@ server answers with those counts, so the client can report the loss
 and the rate that really arrived. One line per finished run.
 
 Changes:
-11/18/2026: dr_utils version, based on Douglas Gaer's 2002-2019 UDP
+11/18/2026: dr_utils version, based on work from the 2002-2019 UDP
 benchmark server (bmarks.udp, then benchmarks/src/udptest/udpserv),
 on the same default port (53897). It now counts loss and order with
 sequence numbers and reports back to the client. The clients can no

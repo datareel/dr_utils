@@ -34,7 +34,7 @@ rate in bytes of buffer a second. Run it with one thread for single
 core speed and with one thread per core for the whole processor.
 
 Changes:
-11/18/2026: dr_utils version, based on Douglas Gaer's 2002-2019 CPU
+11/18/2026: dr_utils version, based on work from the 2002-2019 CPU
 benchmark (bmarks.cpu, then benchmarks/src/cputest). The same test
 (zlib compress2 level 9 and uncompress of random data, --num-threads
 and --buf-size as before). Times are wall clock: the old version used

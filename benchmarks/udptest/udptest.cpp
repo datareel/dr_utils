@@ -33,7 +33,7 @@ the server what arrived and prints the send rate, the receive rate
 and the loss.
 
 Changes:
-11/18/2026: dr_utils version, based on Douglas Gaer's 2002-2019 UDP
+11/18/2026: dr_utils version, based on work from the 2002-2019 UDP
 benchmark client (bmarks.udp, then benchmarks/src/udptest), with the
 same switches and defaults (-b1500 -n1 -p53897 -s150M). The server
 reports what really arrived, so loss is measured; -r sets a send

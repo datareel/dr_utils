@@ -35,7 +35,7 @@ the tree is deep and the work grows faster than the number of keys,
 as in the 2002-2019 test; compare runs with the same --num-inserts.
 
 Changes:
-11/18/2026: dr_utils version, based on Douglas Gaer's 2002-2019 memory
+11/18/2026: dr_utils version, based on work from the 2002-2019 memory
 benchmark (bmarks.memory, then benchmarks/src/memtest): the same tree,
 keys and default size (25k keys, one thread). Times are wall clock
 (the old clock() times counted every thread's CPU time on Linux).

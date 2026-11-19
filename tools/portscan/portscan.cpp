@@ -31,7 +31,7 @@ and a full TCP connect to one or more ports, with the services file
 entry of each open port. For your own hosts only.
 
 Changes:
-11/18/2026: dr_utils version, based on Douglas Gaer's 1999-2004
+11/18/2026: dr_utils version, based on work from the 1999-2004
 portscan program. Port lists and ranges (22,80,443 or 8000-8100, up
 to 1024 ports), a connect timeout (a filtered port no longer waits
 two minutes), and the ping is informational: a host that drops ICMP

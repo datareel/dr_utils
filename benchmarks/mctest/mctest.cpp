@@ -34,7 +34,7 @@ Each receiver stops at the end of the run, or when nothing arrives
 for --timeout seconds.
 
 Changes:
-11/18/2026: dr_utils version, based on Douglas Gaer's 2002-2019
+11/18/2026: dr_utils version, based on work from the 2002-2019
 multicast benchmark client (bmarks.mc, then benchmarks/src/
 multicasttest/mctest), with the same -b -g -n -p switches and port
 (53898). Loss and order are counted with mcserv's sequence numbers,

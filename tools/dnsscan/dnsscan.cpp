@@ -33,7 +33,7 @@ match). With -p each address is pinged too. A quick check of a
 reverse zone, or of which addresses in a range are named.
 
 Changes:
-11/18/2026: dr_utils version, based on Douglas Gaer's 1999-2007
+11/18/2026: dr_utils version, based on work from the 1999-2007
 dnsscan program (ping sweep with names and a.b.c.x-y ranges). The
 ping is optional (-p) so a DNS listing needs no ICMP rights; -f
 checks forward and reverse DNS agree; -a lists unnamed addresses.

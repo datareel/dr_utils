@@ -37,7 +37,7 @@ administratively scoped group (239.255.10.10), 100 Mbit/s and 150 MB.
 Use it only on networks you run.
 
 Changes:
-11/18/2026: dr_utils version, based on Douglas Gaer's 2002-2019
+11/18/2026: dr_utils version, based on work from the 2002-2019
 multicast benchmark server (bmarks.mc, then benchmarks/src/
 multicasttest/mcserv), on the same default port (53898). The old
 server flooded the network until it was stopped; this one sends a

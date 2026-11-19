@@ -33,7 +33,7 @@ server sends the bytes (download). One line per transfer: client,
 direction, bytes, seconds and rate.
 
 Changes:
-11/18/2026: dr_utils version, based on Douglas Gaer's 2002-2019 TCP
+11/18/2026: dr_utils version, based on work from the 2002-2019 TCP
 benchmark server (bmarks.tcp, then benchmarks/src/tcptest/tcpserv),
 on the same default port (53897). The clients can no longer shut
 down or restart the server over the network (the old -k and -r);

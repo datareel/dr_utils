@@ -28,7 +28,7 @@
 #   STATSONLY   the statistics once, no top
 #
 # Changes:
-# 11/18/2026: dr_utils version, based on Douglas Gaer's 2009-2017
+# 11/18/2026: dr_utils version, based on work from the 2009-2017
 # benchmark watch script: os-release when there is no redhat-release,
 # -i and -n for top.
 # -----------------------------------------------------------

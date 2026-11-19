@@ -1,6 +1,6 @@
 # dr_utils 1.3
 
-Small command line file and network tools for Windows and Linux, built on the [DataReel](https://datareel.com) C++ library, version 6.4.1. They are open source (GNU LGPL 3) versions of tools Douglas Gaer wrote from 1999 to 2010. DataReel 7.4 does not already have them.
+Small command line file and network tools for Windows and Linux, built on the [DataReel](https://datareel.com) C++ library, version 6.4.1. They are open source (GNU LGPL 3) versions of tools based on work from 1999 to 2010. DataReel 7.4 does not already have them.
 
 | Tool | What it does |
 |---|---|
@@ -324,7 +324,7 @@ Reads sar text reports (`LC_ALL=C sar -u -f /var/log/sa/saDD > file.txt`, or `sa
 
 | Tool | Based on |
 |---|---|
-| file_hours, file_purge, filetimes | Douglas Gaer's 2005 file tools |
+| file_hours, file_purge, filetimes | the 2005 file tools |
 | internet-test | the 2005 Internet connectivity test |
 | pingscan, dnsscan, portscan, netpscan, arpscan, getmac | the 1999-2010 network scan programs |
 | cputest, disktest, memtest, tcpserv/tcptest, udpserv/udptest, mcserv/mctest | the 2002-2010 bmarks programs and their 2016-2019 versions in work_programs/benchmarks |

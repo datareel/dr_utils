@@ -41,7 +41,7 @@ RESTART lines are skipped. The report is plain text, so it can be
 read on any system, Windows too.
 
 Changes:
-11/18/2026: dr_utils version, based on Douglas Gaer's 2018 sar CPU
+11/18/2026: dr_utils version, based on work from the 2018 sar CPU
 stat reader (system_stats_analysis_tool read_cpu_stats), which parsed
 the CPU sections and printed the steal values. Finished: CSV output,
 the summary, thresholds, gaps, bad samples, several files, --alarm.

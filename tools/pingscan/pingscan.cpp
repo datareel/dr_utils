@@ -30,7 +30,7 @@ Ping sweep of one class C (/24) network or part of one, with each
 host's DNS name. For your own networks only.
 
 Changes:
-11/18/2026: dr_utils version, based on Douglas Gaer's 1999-2010
+11/18/2026: dr_utils version, based on work from the 1999-2010
 pingscan program. Address ranges (a.b.c.x-y), a timeout switch, a
 round trip time per reply, -u (only hosts that answer) and a summary
 line. No root on Linux when net.ipv4.ping_group_range allows ICMP

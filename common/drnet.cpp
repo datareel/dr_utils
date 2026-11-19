@@ -29,8 +29,8 @@ License along with this library. If not, see
 Network helpers shared by the dr_utils network tools. See drnet.h.
 
 Changes:
-11/18/2026: First version for dr_utils, based on the network code of
-Douglas Gaer's 1999-2010 scan programs.
+11/18/2026: First version for dr_utils, based on work from the network code of
+the 1999-2010 scan programs.
 */
 // ----------------------------------------------------------- //
 #if defined (__WIN32__)
