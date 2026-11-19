@@ -29,3 +29,5 @@ benchmarks/*/*.dat
 benchmarks/*/*.btx
 bin/
 tests/work/
+__pycache__/
+*.pyc
