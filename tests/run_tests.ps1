@@ -181,6 +181,49 @@ CheckRc 'sar steal spike' 0 'sar_cpu_stats' @("$Sar\sar_steal_spike.txt"); Has '
 CheckRc 'sar --alarm' 3 'sar_cpu_stats' @('--alarm',"$Sar\sar_steal_spike.txt")
 CheckRc 'sar csv' 0 'sar_cpu_stats' @('--csv','--all-cpus',"$Sar\sar_rhel7_ampm.txt"); Has 'csv row' 'rhel7-2.example.com,2018-09-30 00:10:01,all,0.33,0.00,0.24,0.25,0.00,0.00,0.00,0.00,0.00,99.19,ok'
 
+Write-Output '--- dashboard hooks (--drsm, --submit with a stand-in agent)'
+# A stand-in for drra_svc.exe: records its arguments and a copy of the file
+# (an .exe, as --drra runs the agent program directly)
+$Fake = Join-Path $Work 'fake_drra.exe'
+Add-Type -OutputType ConsoleApplication -OutputAssembly $Fake -TypeDefinition @'
+using System;
+using System.IO;
+public static class FakeDrra {
+  public static int Main(string[] a) {
+    string d = AppDomain.CurrentDomain.BaseDirectory;
+    File.WriteAllText(Path.Combine(d, "drra.args"), string.Join(" ", a));
+    if (a.Length > 0) File.Copy(a[a.Length - 1], Path.Combine(d, "drra.payload"), true);
+    return Environment.GetEnvironmentVariable("FAKE_DRRA_FAIL") != null ? 4 : 0;
+  }
+}
+'@
+CheckRc 'cputest --drsm' 0 'cputest' @('--num-threads=2','--buf-size=2m',"--drsm=$Work\cpu.lines")
+$script:Out = Get-Content "$Work\cpu.lines" -Raw
+Has 'cputest INFO line' '(?m)^INFO - CPU Speed Benchmark \(cputest [0-9.]+\): zlib compress \+ uncompress rate [0-9.]+ MB/s, threads=2 buf_size=2000000 repeat=1'
+Has 'cputest build' '(?m)^DETAIL build=MSVC'
+Has 'cputest table header' '(?m)^UPLOAD columns\|Thread\|seconds'
+if ($script:Out -match 'e\+') { Bad 'no exponents in DRSM lines' } else { Ok 'no exponents in DRSM lines' }
+Has 'collected time with offset' '(?m)^DETAIL collected=\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d[+-]\d{4}'
+CheckRc 'cputest --submit --now' 0 'cputest' @('--buf-size=1m','--submit','--now',"--drra=$Fake"); Has 'submit message' 'Submitted to the reporting agent, hook dru_cputest \(send now\)'
+$script:Out = Get-Content "$Work\drra.args" -Raw; Has 'agent arguments' '^submit --hook dru_cputest --now \S+\\dru_cputest\.txt$'
+$script:Out = Get-Content "$Work\drra.payload" -Raw; Has 'payload is DRSM lines' '(?m)^DETAIL benchmark=cputest'
+$tmpf = ((Get-Content "$Work\drra.args" -Raw).Trim() -split ' ')[-1]
+if (-not (Test-Path $tmpf) -and -not (Test-Path (Split-Path $tmpf))) { Ok 'temporary file removed' } else { Bad 'temporary file removed' $tmpf }
+CheckRc 'disktest --submit=ID' 0 'disktest' @('--num-inserts=2k',"--file=$Work\disk2.btx",'--submit=my_disk',"--drra=$Fake")
+$script:Out = Get-Content "$Work\drra.args" -Raw; Has 'hook ID' '^submit --hook my_disk \S'
+$script:Out = Get-Content "$Work\drra.payload" -Raw; Has 'disktest phase table' '(?m)^UPLOAD columns\|Phase\|seconds\|ms per key'
+$env:FAKE_DRRA_FAIL = '1'
+CheckRc 'agent failure is an error' 1 'cputest' @('--buf-size=1m','--submit',"--drra=$Fake"); Has 'agent failure message' 'agent submit failed for hook dru_cputest \(exit 4\)'
+Remove-Item Env:\FAKE_DRRA_FAIL
+CheckRc 'missing agent is an error' 1 'cputest' @('--buf-size=1m','--submit',"--drra=$Work\no_such_drra.exe")
+CheckRc '--drra-config is for Linux' 1 'cputest' @('--submit','--drra-config=x.ini'); Has 'drra-config message' 'drra-config is for Linux'
+CheckRc '--now without --submit' 1 'flops' @('--now')
+CheckRc 'sar_cpu_stats --submit' 0 'sar_cpu_stats' @('--submit',"--drra=$Fake","$Sar\sar_rhel10.txt")
+$script:Out = Get-Content "$Work\drra.payload" -Raw
+Has 'sar iowait spikes value' '(?m)^DETAIL iowait_spikes=4'; Has 'sar table row' '(?m)^UPLOAD row\|sar_rhel10.txt\|'
+$script:Out = (& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Top 'hooks\windows\install_hooks.ps1') all 2>&1 | Out-String)
+Has 'install_hooks.ps1 dry run' '(?m)^Dry run'; Has 'install_hooks.ps1 would copy' 'would: copy .*dru_sar_cpu_stats\.ini'
+
 Write-Output ''
 Write-Output "$($script:pass) passed, $($script:fail) failed"
 if ($script:fail -eq 0) { exit 0 } else { exit 1 }

@@ -6,7 +6,7 @@
 // C++ Compiler Used: MSVC, GCC
 // Produced By: DataReel Software Development Team
 // File Creation Date: 2018
-// Date Last Modified: 11/18/2026
+// Date Last Modified: 11/19/2026
 // Copyright (c) 2001-2026 DataReel Software Development
 // ----------------------------------------------------------- //
 // ------------- Program Description and Details ------------- //
@@ -45,6 +45,8 @@ Changes:
 stat reader (system_stats_analysis_tool read_cpu_stats), which parsed
 the CPU sections and printed the steal values. Finished: CSV output,
 the summary, thresholds, gaps, bad samples, several files, --alarm.
+11/19/2026: --drsm and --submit: results for the DRSM dashboard through
+the DataReel Reporting Agents (hooks/README.md).
 */
 // ----------------------------------------------------------- //
 #include "gxdlcode.h"
@@ -81,6 +83,13 @@ int all_cpus = 0;   // -P: every CPU, not only "all"
 int max_list = 20;  // Spikes and gaps listed in the summary
 
 const int MaxStepMin = 1440;
+
+// Dashboard output (--drsm, --submit): events, then the summary and a
+// row per file
+drhookOptions hook("sar_cpu_stats");
+drhookLines hook_events;
+drhookLines hook_table;
+gxString current_file;
 
 // The most common step between samples, in seconds (by minutes)
 int CommonStep(const unsigned long *steps)
@@ -203,18 +212,45 @@ gxString When(long day, int secs)
 
 void ListLine(Stats &st, const gxString &msg)
 {
-  if(csv) return;
+  if(hook.Wanted() && st.listed < max_list) {
+    gxString ev;
+    ev << current_file << ": " << msg;
+    hook_events.Info(ev.c_str());
+  }
+  if(csv) {
+    st.listed++;
+    return;
+  }
   if(st.listed < max_list) cout << "  " << msg.c_str() << "\n";
   else if(st.listed == max_list) cout << "  (more not listed)" << "\n";
   st.listed++;
 }
 
+// A percent with two decimals, for the dashboard table
+gxString Round2(double v)
+{
+  char buf[64];
+  sprintf(buf, "%.2f", v);
+  return gxString(buf);
+}
+
+gxString first_host;
+int host_count = 0;
+
 // Returns 1 if the file had at least one CPU sample
 int ReadReport(const char *fname)
 {
   ifstream in(fname, ios::in);
+  // The file name without its folder, for the dashboard
+  current_file = fname;
+  for(const char *p = fname; *p; p++) {
+    if(*p == '/' || *p == '\\') current_file = p + 1;
+  }
   if(!in) {
     cerr << "ERROR - Cannot open SAR file " << fname << "\n";
+    gxString e;
+    e << "Cannot open SAR file " << fname;
+    hook_events.Error(e.c_str());
     return 0;
   }
   Stats st;
@@ -435,6 +471,9 @@ int ReadReport(const char *fname)
   if(st.samples == 0 && st.bad == 0) {
     if(!csv) cout << "  No CPU samples found" << "\n";
     else cerr << "ERROR - No CPU samples in " << fname << "\n";
+    gxString e;
+    e << "No CPU samples in " << fname;
+    hook_events.Error(e.c_str());
     return 0;
   }
   if(!csv) {
@@ -469,12 +508,94 @@ int ReadReport(const char *fname)
 	    st.iowait_spikes, st.gaps, st.bad);
     cout << buf << "\n" << flush;
   }
+  if(hook.Wanted()) {
+    double n = st.samples ? (double)st.samples : 1.0;
+    hook_table.Row();
+    hook_table.Cell(current_file.c_str());
+    hook_table.Cell(host.c_str());
+    hook_table.Cell((double)days);
+    hook_table.Cell((double)st.samples);
+    hook_table.Cell(Round2(st.sum[F_USER] / n).c_str());
+    hook_table.Cell(Round2(st.sum[F_SYS] / n).c_str());
+    hook_table.Cell(Round2(st.sum[F_IOWAIT] / n).c_str());
+    hook_table.Cell(Round2(st.max[F_IOWAIT] > 0 ? st.max[F_IOWAIT] : 0).c_str());
+    hook_table.Cell(st.has[F_STEAL] ? Round2(st.sum[F_STEAL] / n).c_str() : "");
+    hook_table.Cell(st.has[F_STEAL] ? 
+		    Round2(st.max[F_STEAL] > 0 ? st.max[F_STEAL] : 0).c_str() : "");
+    hook_table.Cell(Round2(st.samples ? st.min_idle : 0).c_str());
+    hook_table.Cell((double)(st.steal_spikes + st.iowait_spikes));
+    hook_table.Cell((double)st.gaps);
+    hook_table.Cell((double)st.bad);
+    if(host_count == 0 || host != first_host) host_count++;
+    if(host_count == 1) first_host = host;
+  }
+  for(int f = 0; f < F_COUNT; f++) {
+    total.sum[f] += st.sum[f];
+    if(st.has[f]) total.has[f] = 1;
+    if(st.max[f] > total.max[f]) total.max[f] = st.max[f];
+  }
+  if(st.samples && st.min_idle < total.min_idle) total.min_idle = st.min_idle;
   total.steal_spikes += st.steal_spikes;
   total.iowait_spikes += st.iowait_spikes;
   total.gaps += st.gaps;
   total.bad += st.bad;
   total.samples += st.samples;
   return 1;
+}
+
+// The summary of every file as DRSM lines: values for the manifest
+// rules and trends, the events listed, and a row per file
+int HookFinish(int nfiles, int good)
+{
+  drhookLines lines;
+  double n = total.samples ? (double)total.samples : 1.0;
+  char buf[512];
+  if(total.samples) {
+    sprintf(buf, "sar CPU use (%s %s): %d file(s), %lu samples, busy "
+	    "%.2f%% average, lowest idle %.2f%%; steal spikes %lu, iowait "
+	    "spikes %lu, gaps %lu, bad samples %lu", ProgramName, 
+	    VersionString, good, total.samples, 
+	    100.0 - total.sum[F_IDLE] / n, total.min_idle, total.steal_spikes,
+	    total.iowait_spikes, total.gaps, total.bad);
+    lines.Info(buf);
+  }
+  lines.Value("program", ProgramName);
+  lines.Value("version", VersionString);
+  lines.Value("files", (double)nfiles);
+  lines.Value("files_read", (double)good);
+  lines.Value("files_failed", (double)(nfiles - good));
+  if(host_count == 1) lines.Value("sar_host", first_host.c_str());
+  lines.Value("samples", (double)total.samples);
+  lines.Value("bad_samples", (double)total.bad);
+  lines.Value("gaps", (double)total.gaps);
+  lines.Value("steal_limit", steal_limit);
+  lines.Value("iowait_limit", iowait_limit);
+  lines.Value("steal_spikes", (double)total.steal_spikes);
+  lines.Value("iowait_spikes", (double)total.iowait_spikes);
+  if(total.samples) {
+    for(int f = 0; f < F_COUNT; f++) {
+      if(!total.has[f]) continue;
+      gxString name;
+      name << FieldNames[f] << "_avg";
+      lines.Value(name.c_str(), Round2(total.sum[f] / n).c_str());
+      if(f == F_IDLE) continue;
+      name.Clear();
+      name << FieldNames[f] << "_peak";
+      lines.Value(name.c_str(), Round2(total.max[f] > 0 ? total.max[f] : 0).c_str());
+    }
+    lines.Value("idle_min", Round2(total.min_idle).c_str());
+    lines.Value("busy_avg", Round2(100.0 - total.sum[F_IDLE] / n).c_str());
+  }
+  lines.Value("collected", drhook_collected().c_str());
+  lines.Append(hook_events);
+  lines.Columns();
+  const char *cols[] = { "File", "Host", "Days", "Samples", "User %",
+			 "System %", "Iowait %", "Iowait peak", "Steal %",
+			 "Steal peak", "Lowest idle", "Spikes", "Gaps", 
+			 "Bad samples", 0 };
+  for(int i = 0; cols[i]; i++) lines.Cell(cols[i]);
+  lines.Append(hook_table);
+  return hook.Finish(lines);
 }
 
 void HelpMessage()
@@ -510,6 +631,7 @@ void HelpMessage()
   cout << "Exit status: 0, 1 on an error or no CPU samples, 3 with --alarm."
        << "\n";
   cout << "\n" << flush;
+  drhook_usage(ProgramName);
 }
 
 int main(int argc, char **argv)
@@ -527,6 +649,7 @@ int main(int argc, char **argv)
       cout << ProgramName << " version " << VersionString << "\n" << flush;
       return 0;
     }
+    else if(hook.Arg(a)) ;
     else if(drbench_switch(a, "csv", v)) csv = 1;
     else if(drbench_switch(a, "all-cpus", v)) all_cpus = 1;
     else if(drbench_switch(a, "alarm", v)) alarm = 1;
@@ -553,6 +676,7 @@ int main(int argc, char **argv)
     }
     else nfiles++;
   }
+  if(!hook.Check()) return 1;
   if(nfiles == 0) {
     HelpMessage();
     return 1;
@@ -569,6 +693,7 @@ int main(int argc, char **argv)
     else failed++;
   }
   cout << flush;
+  if(hook.Wanted() && !HookFinish(nfiles, good)) return 1;
   if(failed || good == 0) return 1;
   if(alarm && (total.steal_spikes || total.iowait_spikes || total.gaps ||
 	       total.bad)) {

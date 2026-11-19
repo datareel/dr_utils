@@ -6,7 +6,7 @@
 // C++ Compiler Used: MSVC, GCC
 // Produced By: DataReel Software Development Team
 // File Creation Date: 2002
-// Date Last Modified: 11/18/2026
+// Date Last Modified: 11/19/2026
 // Copyright (c) 2001-2026 DataReel Software Development
 // ----------------------------------------------------------- //
 // ------------- Program Description and Details ------------- //
@@ -41,6 +41,8 @@ and --buf-size as before). Times are wall clock: the old version used
 clock(), which on Linux counts the CPU time of every thread, so its
 multi-thread times were too long. New: --repeat, a check that each
 uncompressed part matches, Windows builds.
+11/19/2026: --drsm and --submit: results for the DRSM dashboard through
+the DataReel Reporting Agents (hooks/README.md).
 */
 // ----------------------------------------------------------- //
 #include "gxdlcode.h"
@@ -159,6 +161,7 @@ void HelpMessage()
   cout << "The buffer is split between the threads. Sizes are decimal "
        << "(1k = 1000)." << "\n";
   cout << "\n" << flush;
+  drhook_usage("cputest");
 }
 
 int main(int argc, char **argv)
@@ -167,6 +170,7 @@ int main(int argc, char **argv)
   double buf_size = 100e6;
   unsigned long repeat = 1;
   gxString datfile;
+  drhookOptions hook("cputest");
 
   for(int i = 1; i < argc; i++) {
     const char *v;
@@ -190,6 +194,7 @@ int main(int argc, char **argv)
 	return 1;
       }
     }
+    else if(hook.Arg(argv[i])) ;
     else if(drbench_switch(argv[i], "datfile", v) && v && *v) datfile = v;
     else if(drbench_switch(argv[i], "repeat", v)) {
       if(!drbench_parse_count(v, 1, 1000000, repeat)) {
@@ -207,6 +212,7 @@ int main(int argc, char **argv)
       return 1;
     }
   }
+  if(!hook.Check()) return 1;
   if(sizeof(size_t) < 8 && buf_size > 1.5e9) {
     cout << "Error a 32-bit build can use at most 1.5g" << "\n" << flush;
     return 1;
@@ -258,6 +264,7 @@ int main(int argc, char **argv)
     }
   }
   int failed = 0;
+  int out_failed = 0;  // Plot file or dashboard output
   double sum = 0;
   for(i = 0; i < num_threads; i++) {
     t.JoinThread(threads[i]);
@@ -275,7 +282,7 @@ int main(int argc, char **argv)
 	  drbench_rate(bytes, elapsed).c_str());
   cout << line << "\n" << flush;
 
-  if(!datfile.is_null()) {
+  if(!datfile.is_null() || hook.Wanted()) {
     drbenchDat dat("cputest", VersionString, "CPU Speed Benchmark");
     dat.Set("threads", (double)num_threads);
     dat.Set("buf_size", (double)total);
@@ -294,7 +301,13 @@ int main(int argc, char **argv)
     dat.Set("items", items.c_str());
     dat.Set("item_values", vals.c_str());
     dat.Set("item_unit", "seconds");
-    if(!dat.Write(datfile.c_str())) failed++;
+    if(!datfile.is_null() && !dat.Write(datfile.c_str())) out_failed++;
+    if(hook.Wanted()) {
+      drhookLines lines;
+      dat.Hook(lines);
+      if(failed > 0) lines.Error("cputest: the run did not complete, see the table");
+      if(!hook.Finish(lines)) out_failed++;
+    }
   }
   delete[] threads;
   delete[] parms;
@@ -303,7 +316,7 @@ int main(int argc, char **argv)
     cout << failed << " thread(s) failed" << "\n" << flush;
     return 1;
   }
-  return 0;
+  return out_failed ? 1 : 0;
 }
 // ----------------------------------------------------------- //
 // ------------------------------- //

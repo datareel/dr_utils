@@ -6,7 +6,7 @@
 // C++ Compiler Used: MSVC, GCC
 // Produced By: DataReel Software Development Team
 // File Creation Date: 2002
-// Date Last Modified: 11/18/2026
+// Date Last Modified: 11/19/2026
 // Copyright (c) 2001-2026 DataReel Software Development
 // ----------------------------------------------------------- //
 // ------------- Program Description and Details ------------- //
@@ -40,6 +40,8 @@ phases, B-tree order (128) and plot data keys. Times are wall clock
 (the old version summed clock() around each call). New: --file to
 put the test file on the disk to test, --keep, the delete check on
 by default, the B-tree status at the end, Windows builds.
+11/19/2026: --drsm and --submit: results for the DRSM dashboard through
+the DataReel Reporting Agents (hooks/README.md).
 */
 // ----------------------------------------------------------- //
 #include "gxdlcode.h"
@@ -193,6 +195,7 @@ void HelpMessage()
   cout << "     --datfile=fname       Name of plot data file for plotting"
        << "\n";
   cout << "\n" << flush;
+  drhook_usage("disktest");
 }
 
 int main(int argc, char **argv)
@@ -200,6 +203,7 @@ int main(int argc, char **argv)
   unsigned long num_inserts = 1000000;
   gxString fname = "testfile.btx";
   gxString datfile;
+  drhookOptions hook("disktest");
   int keep = 0;
 
   for(int i = 1; i < argc; i++) {
@@ -220,6 +224,7 @@ int main(int argc, char **argv)
       }
     }
     else if(drbench_switch(argv[i], "file", v) && v && *v) fname = v;
+    else if(hook.Arg(argv[i])) ;
     else if(drbench_switch(argv[i], "datfile", v) && v && *v) datfile = v;
     else if(drbench_switch(argv[i], "keep", v)) keep = 1;
     else if(drbench_switch(argv[i], "verbose", v) ||
@@ -233,6 +238,7 @@ int main(int argc, char **argv)
     }
   }
 
+  if(!hook.Check()) return 1;
   if(futils_exists(fname.c_str())) {
     cout << "Error " << fname.c_str() << " exists; remove it or use "
 	 << "--file" << "\n" << flush;
@@ -325,6 +331,33 @@ int main(int argc, char **argv)
     df << "title=Disk Speed Benchmark" << "\n";
     df.close();
     cout << "Plot data written to " << datfile.c_str() << "\n" << flush;
+  }
+  if(hook.Wanted()) {
+    // Phase totals and milliseconds per key for the dashboard
+    drbenchDat dat("disktest", VersionString, "Disk Speed Benchmark");
+    dat.Set("num_inserts", (double)num_inserts);
+    dat.Set("total", elapsed);
+    dat.Set("total_unit", "seconds");
+    dat.Set("total_label", "Total elapsed time");
+    dat.Set("insert_time", ins.total);
+    dat.Set("search_time", fnd.total);
+    dat.Set("delete_time", del.total);
+    dat.Set("reinsert_time", rei.total);
+    dat.Set("items", "Insert,Find,Delete,Reinsert");
+    gxString vals, avgs;
+    PhaseTimes *ph[4] = { &ins, &fnd, &del, &rei };
+    for(int k = 0; k < 4; k++) {
+      dat.Add(vals, ph[k]->total);
+      dat.Add(avgs, ph[k]->total / num_inserts * 1000.0);
+    }
+    dat.Set("item_values", vals.c_str());
+    dat.Set("item_unit", "seconds");
+    dat.Set("item2_values", avgs.c_str());
+    dat.Set("item2_unit", "ms per key");
+    drhookLines lines;
+    dat.Hook(lines, "Phase");
+    if(!ok) lines.Error("disktest: the run failed, see the program output");
+    if(!hook.Finish(lines)) ok = 0;
   }
   return ok ? 0 : 1;
 }

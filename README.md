@@ -1,4 +1,4 @@
-# dr_utils 1.3
+# dr_utils 1.4
 
 Small command line file and network tools for Windows and Linux, built on the [DataReel](https://datareel.com) C++ library, version 6.4.1. They are open source (GNU LGPL 3) versions of tools based on work from 1999 to 2010. DataReel 7.4 does not already have them.
 
@@ -32,6 +32,8 @@ And a system statistics tool:
 | Tool | What it does |
 |---|---|
 | `sar_cpu_stats` | Reads sar text reports: CPU averages and peaks, steal and iowait spikes, gaps and impossible samples, or every sample as CSV |
+
+The benchmarks, `sar_cpu_stats` and `dr_report.py` can also send their results to the DataReel System Monitor dashboard through the DataReel Reporting Agents for Linux and Windows (`--submit`), see [Dashboard](#dashboard-reporting-agent-hooks).
 
 Use the network tools and benchmarks only on networks and hosts you own or are allowed to test. The scan tools scan one /24 at most.
 
@@ -288,6 +290,18 @@ dr_report.py -o host1_report.html --title "host1 sizing" --csv host1_summary.csv
 
 `--csv` also writes the summary table as CSV, and `--no-runs` keeps only the comparison charts. dr_plot.py and dr_report.py are tested on Linux (`tests/run_tests.sh`); the result files from Windows runs plot the same way.
 
+### Dashboard (reporting agent hooks)
+
+Every benchmark and `sar_cpu_stats` take `--drsm=fname` and `--submit[=ID] [--now]`, and `dr_report.py` takes `--submit [ID] [--now]`. `--drsm` writes the results as DRSM lines: an INFO line with the main result, a value for each setting and result, and a table of the threads, clients, receivers, phases or sar files. `--submit` hands them to the DataReel Reporting Agent (`drra submit --hook dru_<program>` on Linux, `drra_svc.exe submit` on Windows), which sends them to the report server; DRSM then shows them on the host's page, with alert rules and trends. `dr_report.py --submit` sends the whole HTML report, shown by DRSM's html display.
+
+```
+cputest --num-threads=8 --submit --now
+sar_cpu_stats --submit sar_yesterday.txt
+dr_report.py -o host_report.html --submit results/
+```
+
+The agents' upload hook files, the DRSM manifests, install scripts (dry run by default) and a daily sar cron job are in [hooks/](hooks/README.md), with the setup steps and the values each program sends. No change to the agents or DRSM is needed.
+
 ### Watch scripts
 
 - `benchmarks/scripts/watch_system.sh [-i sec] [-n count] [STATSONLY]` records the release, kernel, CPU, memory and disk statistics from /proc (between `START name` and `END name` lines), then runs `top -b` while a benchmark runs (Linux).
@@ -316,9 +330,10 @@ Reads sar text reports (`LC_ALL=C sar -u -f /var/log/sa/saDD > file.txt`, or `sa
 | `benchmarks/<name>/` | one folder per benchmark program, laid out the same way; `benchmarks/plot` and `benchmarks/scripts` |
 | `system_stats/sar_cpu_stats/` | the sar report tool |
 | `tests/data/sar/` | short sar reports for the tests |
-| `common/` | `drnet.h/.cpp` (ping, TCP connect with a timeout, DNS, ARP, ranges, services files), `drsock.h/.cpp` (benchmark sockets and wire formats), `drbench.h` (timers, sizes, pacing) and `drutil.h` (file ages) |
+| `common/` | `drnet.h/.cpp` (ping, TCP connect with a timeout, DNS, ARP, ranges, services files), `drsock.h/.cpp` (benchmark sockets and wire formats), `drbench.h` (timers, sizes, pacing, plot files), `drhook.h` (DRSM lines and the agent hand-off) and `drutil.h` (file ages) |
+| `hooks/` | reporting agent upload hook files, DRSM manifests and install scripts for the dashboard output |
 | `env/` | `linux.mak` and `msvc.mak`, the build settings on top of DataReel's |
-| `tests/` | `run_tests.sh` (Linux) and `run_tests.ps1` (Windows) |
+| `tests/` | `run_tests.sh` (Linux), `run_tests.ps1` (Windows) and `hooks_e2e_test.sh` (dashboard output through a real agent and DRSM probe) |
 
 ## History
 

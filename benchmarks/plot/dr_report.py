@@ -28,8 +28,14 @@
 # (PNG images), so the one file can be mailed, archived or printed.
 #
 #   dr_report.py -o report.html results/            every result file
-#   dr_report.py -o report.html --title "aws-app sizing" a.dat b.dat x.csv
+#   dr_report.py -o report.html --title "host1 sizing" a.dat b.dat x.csv
 #   dr_report.py -o report.html --csv summary.csv results/
+#   dr_report.py -o report.html --submit --now results/
+#
+# --submit hands the HTML file to the DataReel Reporting Agent (drra
+# submit --hook dru_report, or drra_svc.exe on Windows), which sends it
+# to the dashboard; DRSM shows it with its html display (hook files in
+# dr_utils hooks/).
 #
 # A folder is read for *.dat, *.csv and *.log files; files that are not
 # dr_utils results are listed as skipped. Needs Python 3 with
@@ -37,6 +43,7 @@
 #
 # Changes:
 # 11/19/2026: First version.
+# 11/19/2026: --submit, --now, --drra, --drra-config for the dashboard.
 # -----------------------------------------------------------
 import argparse
 import base64
@@ -45,6 +52,8 @@ import datetime
 import html
 import io
 import os
+import re
+import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -306,6 +315,38 @@ def build(args):
     return kinds, skipped
 
 
+def default_drra():
+    """The agent program: drra on Linux, drra_svc.exe on Windows"""
+    if os.name == 'nt':
+        pf = os.environ.get('ProgramFiles', r'C:\Program Files')
+        return os.path.join(pf, 'DataReel', 'ReportingAgent', 'drra_svc.exe')
+    for d in os.environ.get('PATH', '').split(os.pathsep):
+        if d and os.access(os.path.join(d, 'drra'), os.X_OK):
+            return os.path.join(d, 'drra')
+    return '/usr/sbin/drra'
+
+
+def submit(args):
+    """Hand the report to the reporting agent. Returns True if it took it."""
+    cmd = [args.drra or default_drra()]
+    if args.drra_config:
+        cmd += ['-c', args.drra_config]
+    cmd += ['submit', '--hook', args.submit]
+    if args.now:
+        cmd.append('--now')
+    cmd.append(args.out)
+    try:
+        rc = subprocess.call(cmd)
+    except OSError as e:
+        print('ERROR - could not run %s: %s' % (cmd[0], e))
+        return False
+    if rc != 0:
+        print('ERROR - agent submit failed for hook %s (exit %d)' % (args.submit, rc))
+        return False
+    print('Submitted to the reporting agent, hook %s%s' % (args.submit, ' (send now)' if args.now else ''))
+    return True
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description='Build an HTML report from dr_utils results')
     ap.add_argument('inputs', nargs='+', help='result files or folders')
@@ -314,7 +355,16 @@ def main(argv=None):
     ap.add_argument('--csv', help='also write the summary table as CSV')
     ap.add_argument('--no-runs', action='store_true',
                     help='only the comparison charts, not one chart per run')
+    ap.add_argument('--submit', nargs='?', const='dru_report', metavar='ID',
+                    help='hand the report to the reporting agent, hook ID (default dru_report)')
+    ap.add_argument('--now', action='store_true', help='with --submit, the agent sends within seconds')
+    ap.add_argument('--drra', help='agent program (default drra, or drra_svc.exe on Windows)')
+    ap.add_argument('--drra-config', help='agent settings file, drra -c INI (Linux, for tests)')
     args = ap.parse_args(argv)
+    if args.submit is not None and not re.match(r'^[a-z0-9_]{1,32}$', args.submit):
+        ap.error('--submit ID: the hook ID is a-z, 0-9 and _, up to 32 characters')
+    if args.now and args.submit is None:
+        ap.error('--now needs --submit')
     try:
         kinds, skipped = build(args)
     except dr_plot.PlotError as e:
@@ -322,6 +372,8 @@ def main(argv=None):
         return 1
     n = sum(len(v) for v in kinds.values())
     print('Report file = %s (%d result files, %d skipped)' % (args.out, n, len(skipped)))
+    if args.submit is not None and not submit(args):
+        return 1
     return 0
 
 

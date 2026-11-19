@@ -6,7 +6,7 @@
 // C++ Compiler Used: MSVC, GCC
 // Produced By: DataReel Software Development Team
 // File Creation Date: 11/18/2026
-// Date Last Modified: 11/18/2026
+// Date Last Modified: 11/19/2026
 // Copyright (c) 2001-2026 DataReel Software Development
 // ----------------------------------------------------------- //
 // ---------- Include File Description and Details  ---------- //
@@ -31,6 +31,7 @@ file_purge, filetimes): the dr_utils release string and a file's age.
 
 Changes:
 11/18/2026: First version for dr_utils.
+11/19/2026: Version 1.4 (dashboard output).
 */
 // ----------------------------------------------------------- //
 #ifndef __DR_UTILS_UTIL_HPP__
@@ -44,7 +45,7 @@ Changes:
 #include "futils.h"
 
 // dr_utils release, printed by every tool's help and version output
-#define DR_UTILS_VERSION "1.3"
+#define DR_UTILS_VERSION "1.4"
 
 // File age results
 const int DRUTIL_AGE_OK = 0;

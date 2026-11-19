@@ -6,7 +6,7 @@
 // C++ Compiler Used: MSVC, GCC
 // Produced By: DataReel Software Development Team
 // File Creation Date: 11/18/2026
-// Date Last Modified: 11/18/2026
+// Date Last Modified: 11/19/2026
 // Copyright (c) 2001-2026 DataReel Software Development
 // ----------------------------------------------------------- //
 // ---------- Include File Description and Details  ---------- //
@@ -35,6 +35,7 @@ so results stay comparable.
 
 Changes:
 11/18/2026: First version for dr_utils.
+11/19/2026: drbenchDat::Hook(), the results as DRSM lines.
 */
 // ----------------------------------------------------------- //
 #ifndef __DR_UTILS_BENCH_HPP__
@@ -56,6 +57,7 @@ Changes:
 
 #include "gxstring.h"
 #include "gxmutex.h"
+#include "drhook.h"
 
 // Seconds since an arbitrary start, from a monotonic clock
 inline double drbench_now()
@@ -227,6 +229,8 @@ inline const char *drbench_build()
 //               client or phase (items, item_values, item_unit;
 //               optional item2_values, item2_unit)
 //   [HOSTINFO]  host, date, build, title
+// Hook() gives the same results as DRSM lines for the dashboard
+// (--drsm, --submit, see drhook.h).
 class drbenchDat
 {
 public:
@@ -234,9 +238,17 @@ public:
     body << "[BENCHMARK]\n" << "name=" << name << "\n" 
 	 << "version=" << version << "\n";
     this->title = title;
+    this->name = name;
+    this->version = version;
+    count = 0;
   }
   void Set(const char *key, const char *value) {
     body << key << "=" << value << "\n";
+    if(count < MAX_KEYS) {
+      keys[count] = key;
+      values[count] = value;
+      count++;
+    }
   }
   void Set(const char *key, double value) {
     char buf[64];
@@ -268,9 +280,131 @@ public:
     fflush(stdout);
     return 1;
   }
+
+  // The value of a key set with Set(), or 0
+  const char *Get(const char *key) const {
+    for(int i = 0; i < count; i++) {
+      if(strcmp(keys[i].c_str(), key) == 0) return values[i].c_str();
+    }
+    return 0;
+  }
+
+  // The results as DRSM lines: an INFO line with the main result, a
+  // DETAIL value for each setting and result (the manifest rules and
+  // trends use them), and a table of the threads, clients, receivers
+  // or phases. "item_header" names the first column (default: the
+  // first word of the items when they all share it, else "Item").
+  void Hook(drhookLines &lines, const char *item_header = 0) const {
+    const char *total = Get("total");
+    const char *unit = Get("total_unit");
+    const char *label = Get("total_label");
+    gxString info, settings;
+    for(int i = 0; i < count; i++) {
+      if(IsResultKey(keys[i].c_str())) continue;
+      if(!settings.is_null()) settings << " ";
+      settings << keys[i] << "=" << drhook_value(values[i].c_str());
+    }
+    info << title << " (" << name << " " << version << "): ";
+    if(total) {
+      info << (label ? label : "result") << " " << drhook_value(total);
+      if(unit) info << " " << unit;
+    }
+    else {
+      info << "done";
+    }
+    if(!settings.is_null()) info << ", " << settings;
+    lines.Info(info.c_str());
+
+    lines.Value("benchmark", name.c_str());
+    lines.Value("version", version.c_str());
+    lines.Value("build", drbench_build());
+    for(int i = 0; i < count; i++) {
+      const char *k = keys[i].c_str();
+      if(IsListKey(k)) continue;
+      lines.Value(k, values[i].c_str());
+    }
+    // The worst loss of the clients or receivers (udptest, mctest)
+    const char *lu = Get("item2_unit");
+    const char *lv = Get("item2_values");
+    if(lu && lv && strstr(lu, "lost")) {
+      double worst = 0;
+      const char *p = lv;
+      while(*p) {
+	gxString f = NextField(p);
+	double d = atof(f.c_str());
+	if(d > worst) worst = d;
+      }
+      lines.Value("loss_max_pct", worst);
+    }
+    lines.Value("collected", drhook_collected().c_str());
+
+    // The table: one row per item
+    const char *items = Get("items");
+    if(!items || !*items) return;
+    const char *v1 = Get("item_values");
+    const char *v2 = Get("item2_values");
+    const char *u1 = Get("item_unit");
+    const char *u2 = Get("item2_unit");
+    lines.Columns();
+    lines.Cell(item_header ? gxString(item_header).c_str() : 
+	       ItemHeader(items).c_str());
+    lines.Cell(u1 ? u1 : "Value");
+    if(v2) lines.Cell(u2 ? u2 : "Value 2");
+    const char *p1 = v1, *p2 = v2, *pi = items;
+    while(pi && *pi) {
+      gxString item = NextField(pi), a = NextField(p1), b = NextField(p2);
+      lines.Row();
+      lines.Cell(item.c_str());
+      lines.Cell(drhook_value(a.c_str()).c_str());
+      if(v2) lines.Cell(drhook_value(b.c_str()).c_str());
+    }
+  }
+
 private:
+  // Lists for the table, not single values
+  static int IsListKey(const char *k) {
+    return strcmp(k, "items") == 0 || strcmp(k, "item_values") == 0 ||
+      strcmp(k, "item2_values") == 0;
+  }
+  // Results, left out of the settings on the INFO line
+  static int IsResultKey(const char *k) {
+    return IsListKey(k) || strncmp(k, "total", 5) == 0 ||
+      strncmp(k, "item", 4) == 0 || strcmp(k, "elapsed") == 0 ||
+      strcmp(k, "loss") == 0 || strcmp(k, "lost") == 0 || 
+      strcmp(k, "received") == 0 || strcmp(k, "out_of_order") == 0 ||
+      (strlen(k) > 5 && strcmp(k + strlen(k) - 5, "_time") == 0);
+  }
+  // The next field of a comma separated list
+  static gxString NextField(const char *&p) {
+    gxString out;
+    if(!p) return out;
+    while(*p && *p != ',') out << *p++;
+    if(*p == ',') p++;
+    return out;
+  }
+  // "Thread" when every item is "Thread n", else "Item"
+  static gxString ItemHeader(const char *items) {
+    const char *sp = strchr(items, ' ');
+    if(!sp || sp == items) return gxString("Item");
+    gxString word;
+    for(const char *p = items; p < sp; p++) word << *p;
+    const char *p = items;
+    while(*p) {
+      gxString f = NextField(p);
+      if(strncmp(f.c_str(), word.c_str(), word.length()) != 0 ||
+	 f.c_str()[word.length()] != ' ') return gxString("Item");
+    }
+    return word;
+  }
+
+  enum { MAX_KEYS = 64 };
   gxString body;
   gxString title;
+  gxString name;
+  gxString version;
+  gxString keys[MAX_KEYS];
+  gxString values[MAX_KEYS];
+  int count;
 };
 
 // Console output from several threads, one message at a time

@@ -6,7 +6,7 @@
 // C++ Compiler Used: MSVC, GCC
 // Produced By: DataReel Software Development Team
 // File Creation Date: 2002
-// Date Last Modified: 11/18/2026
+// Date Last Modified: 11/19/2026
 // Copyright (c) 2001-2026 DataReel Software Development
 // ----------------------------------------------------------- //
 // ------------- Program Description and Details ------------- //
@@ -39,6 +39,8 @@ same switches and defaults (-b1500 -n1 -p53897 -s150M). The server
 reports what really arrived, so loss is measured; -r sets a send
 rate. Removed: -k and -r as remote server shutdown and restart (-r
 is now the rate). New: Windows builds.
+11/19/2026: --drsm and --submit: results for the DRSM dashboard through
+the DataReel Reporting Agents (hooks/README.md).
 */
 // ----------------------------------------------------------- //
 #include "gxdlcode.h"
@@ -193,6 +195,7 @@ void HelpMessage()
        << "\n";
   cout << "Exit status: 0 if every client got a report, 1 otherwise." << "\n";
   cout << "\n" << flush;
+  drhook_usage("udptest");
 }
 
 int main(int argc, char **argv)
@@ -202,6 +205,7 @@ int main(int argc, char **argv)
   double bytes = 150e6, rate = 0;
   const char *server = 0;
   gxString datfile;
+  drhookOptions hook("udptest");
   for(int i = 1; i < argc; i++) {
     const char *a = argv[i];
     if(strcmp(a, "-?") == 0 || strcmp(a, "--help") == 0) {
@@ -234,6 +238,7 @@ int main(int argc, char **argv)
 	return 1;
       }
     }
+    else if(hook.Arg(a)) ;
     else if(strncmp(a, "--datfile=", 10) == 0 && a[10]) datfile = a + 10;
     else if(strncmp(a, "-s", 2) == 0) {
       if(!drbench_parse_size(a + 2, 100e9, bytes) || bytes < 1000) {
@@ -249,6 +254,7 @@ int main(int argc, char **argv)
     }
     else server = a;
   }
+  if(!hook.Check()) return 1;
   if(!server) {
     HelpMessage();
     return 1;
@@ -311,7 +317,7 @@ int main(int argc, char **argv)
 	  sent_total ? 100.0 * (sent_total - (double)received) / sent_total : 0,
 	  drbench_rate((double)recv_bytes, span).c_str());
   cout << line << "\n" << flush;
-  if(!datfile.is_null()) {
+  if(!datfile.is_null() || hook.Wanted()) {
     drbenchDat dat("udptest", VersionString, "UDP Bandwidth Benchmark");
     dat.Set("server", server);
     dat.Set("clients", (double)clients);
@@ -336,7 +342,13 @@ int main(int argc, char **argv)
     dat.Set("item_unit", "MB/s");
     dat.Set("item2_values", loss.c_str());
     dat.Set("item2_unit", "% lost");
-    if(!dat.Write(datfile.c_str())) ok = 0;
+    if(!datfile.is_null() && !dat.Write(datfile.c_str())) ok = 0;
+    if(hook.Wanted()) {
+      drhookLines lines;
+      dat.Hook(lines);
+      if(ok != clients) lines.Error("udptest: the run did not complete, see the table");
+      if(!hook.Finish(lines)) ok = 0;
+    }
   }
   delete[] threads;
   delete[] parms;

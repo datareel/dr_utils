@@ -272,6 +272,68 @@ check_rc "sar two files" 0 "$BIN/sar_cpu_stats" "$SAR/sar_rhel5_partial.txt" "$S
 check_rc "sar no CPU data" 1 "$BIN/sar_cpu_stats" "$SAR/README.md"
 check_rc "sar missing file" 1 "$BIN/sar_cpu_stats" "$SAR/none.txt"
 
+echo "--- dashboard hooks (--drsm, --submit with a stand-in agent)"
+# A stand-in for drra: records its arguments and a copy of the file
+FAKE="$WORK/fake_drra"
+cat > "$FAKE" <<'EOS'
+#!/bin/bash
+echo "$*" > "$(dirname "$0")/drra.args"
+for last; do :; done
+cp "$last" "$(dirname "$0")/drra.payload"
+[ -n "${FAKE_DRRA_FAIL:-}" ] && exit 4
+exit 0
+EOS
+chmod 755 "$FAKE"
+check_rc "cputest --drsm" 0 "$BIN/cputest" --num-threads=2 --buf-size=2m --drsm="$WORK/cpu.lines"
+L=$(cat "$WORK/cpu.lines")
+OUT=$L; has "cputest INFO line" '^INFO - CPU Speed Benchmark \(cputest [0-9.]+\): zlib compress \+ uncompress rate [0-9.]+ MB/s, threads=2 buf_size=2000000 repeat=1$'
+has "cputest plain decimal setting" '^DETAIL buf_size=2000000$'
+has "cputest total value" '^DETAIL total=[0-9]+(\.[0-9]+)?$'
+has "cputest table header" '^UPLOAD columns\|Thread\|seconds$'
+has "cputest table rows" '^UPLOAD row\|Thread 1\|[0-9.]+$'
+if grep -q 'e+' "$WORK/cpu.lines"; then bad "no exponents in DRSM lines" "$(grep 'e+' "$WORK/cpu.lines")"; else ok "no exponents in DRSM lines"; fi
+check_rc "cputest --submit --now" 0 "$BIN/cputest" --buf-size=1m --submit --now --drra="$FAKE"
+has "submit message" 'Submitted to the reporting agent, hook dru_cputest \(send now\)'
+OUT=$(cat "$WORK/drra.args"); has "agent arguments" '^submit --hook dru_cputest --now /.*/dru_cputest\.txt$'
+OUT=$(cat "$WORK/drra.payload"); has "payload is DRSM lines" '^DETAIL benchmark=cputest$'
+TMPF=$(sed 's/.* //' "$WORK/drra.args")
+if [ ! -e "$TMPF" ] && [ ! -e "$(dirname "$TMPF")" ]; then ok "temporary file removed"; else bad "temporary file removed" "$TMPF"; fi
+check_rc "submit=ID and --drra-config" 0 "$BIN/flops" --iterations=1m --submit=my_flops --drra-config=/x/drra.ini --drra="$FAKE"
+OUT=$(cat "$WORK/drra.args"); has "-c and hook ID" '^-c /x/drra.ini submit --hook my_flops /'
+check_rc "--drsm and --submit send the --drsm file" 0 "$BIN/memtest" --num-inserts=1k --drsm="$WORK/mem.lines" --submit --drra="$FAKE"
+OUT=$(cat "$WORK/drra.args"); has "submits the --drsm file" "submit --hook dru_memtest $WORK/mem.lines\$"
+OUT=$(cat "$WORK/mem.lines"); has "memtest phase table" '^UPLOAD row\|Reinsert\|'
+check_rc "agent failure is an error" 1 env FAKE_DRRA_FAIL=1 "$BIN/cputest" --buf-size=1m --submit --drra="$FAKE"
+has "agent failure message" 'agent submit failed for hook dru_cputest \(exit 4\)'
+check_rc "missing agent is an error" 1 "$BIN/cputest" --buf-size=1m --submit --drra="$WORK/no_such_drra"
+check_rc "--now without --submit" 1 "$BIN/cputest" --now; has "now needs submit" 'now needs --submit'
+check_rc "bad hook ID" 1 "$BIN/disktest" --submit=Bad-ID; has "bad ID message" 'hook ID is a-z'
+check_rc "disktest --drsm" 0 "$BIN/disktest" --num-inserts=2k --file="$WORK/disk2.btx" --drsm="$WORK/disk.lines"
+OUT=$(cat "$WORK/disk.lines"); has "disktest phase times" '^DETAIL search_time=[0-9.]+$'; has "disktest ms per key" '^UPLOAD columns\|Phase\|seconds\|ms per key$'
+check_rc "sar_cpu_stats --drsm" 0 "$BIN/sar_cpu_stats" --drsm="$WORK/sar.lines" "$SAR/sar_steal_spike.txt" "$SAR/sar_gap.txt"
+OUT=$(cat "$WORK/sar.lines")
+has "sar summary" '^INFO - sar CPU use \(sar_cpu_stats [0-9.]+\): 2 file\(s\), 7 samples'
+has "sar values" '^DETAIL gaps=2$'; has "sar bad samples" '^DETAIL bad_samples=2$'; has "sar busy" '^DETAIL busy_avg=9.82$'
+has "sar events" '^INFO - sar_gap.txt: gap: no samples for 70 minutes'
+has "sar table row" '^UPLOAD row\|sar_gap.txt\|rhel7-2.example.com\|1\|5\|'
+check_rc "sar_cpu_stats --drsm missing file" 1 "$BIN/sar_cpu_stats" --drsm="$WORK/sar2.lines" "$SAR/none.txt"
+OUT=$(cat "$WORK/sar2.lines"); has "sar missing file ERROR" '^ERROR - Cannot open SAR file'
+if command -v python3 > /dev/null && python3 -c 'import matplotlib' 2> /dev/null; then
+  check_rc "dr_report --submit" 0 python3 "$TOP/benchmarks/plot/dr_report.py" -o "$WORK/report5.html" --submit --now --drra="$FAKE" "$WORK/cpu1.dat"
+  OUT=$(cat "$WORK/drra.args"); has "report submit arguments" "^submit --hook dru_report --now $WORK/report5.html\$"
+  check_rc "dr_report --now alone" 2 python3 "$TOP/benchmarks/plot/dr_report.py" -o "$WORK/report6.html" --now "$WORK/cpu1.dat"
+fi
+for f in "$TOP"/hooks/uploads.d/*.ini; do
+  id=$(basename "$f" .ini)
+  if grep -q "^id=$id\$" "$f" && [ -f "$TOP/hooks/drsm/uploads/$id/plugin.conf" ] && \
+     grep -q "^NAME=$id\$" "$TOP/hooks/drsm/uploads/$id/plugin.conf" && [ -x "$TOP/hooks/drsm/uploads/$id/probe.sh" ]; then
+    ok "hook files $id"
+  else
+    bad "hook files $id" "ini id, manifest NAME and probe.sh must match"
+  fi
+done
+check_rc "install_hooks.sh dry run" 0 "$TOP/hooks/linux/install_hooks.sh" all; has "dry run" '^Dry run'; has "would install" 'would run: install .*dru_sar_cpu_stats.ini /etc/drra/uploads.d/'
+
 echo
 echo "$pass passed, $fail failed"
 [ "$fail" = 0 ]

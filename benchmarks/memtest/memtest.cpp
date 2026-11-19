@@ -6,7 +6,7 @@
 // C++ Compiler Used: MSVC, GCC
 // Produced By: DataReel Software Development Team
 // File Creation Date: 2002
-// Date Last Modified: 11/18/2026
+// Date Last Modified: 11/19/2026
 // Copyright (c) 2001-2026 DataReel Software Development
 // ----------------------------------------------------------- //
 // ------------- Program Description and Details ------------- //
@@ -41,6 +41,8 @@ keys and default size (25k keys, one thread). Times are wall clock
 (the old clock() times counted every thread's CPU time on Linux).
 New: a find phase, the delete check on by default, totals for all
 threads, Windows builds.
+11/19/2026: --drsm and --submit: results for the DRSM dashboard through
+the DataReel Reporting Agents (hooks/README.md).
 */
 // ----------------------------------------------------------- //
 #include "gxdlcode.h"
@@ -163,6 +165,7 @@ void HelpMessage()
        << "1k 25k 100k" << "\n"
        << "                           (default 25k, max 1m)" << "\n";
   cout << "\n" << flush;
+  drhook_usage("memtest");
 }
 
 int main(int argc, char **argv)
@@ -170,6 +173,7 @@ int main(int argc, char **argv)
   unsigned long num_threads = 1;
   unsigned long num_inserts = 25000;
   gxString datfile;
+  drhookOptions hook("memtest");
 
   for(int i = 1; i < argc; i++) {
     const char *v;
@@ -194,6 +198,7 @@ int main(int argc, char **argv)
 	return 1;
       }
     }
+    else if(hook.Arg(argv[i])) ;
     else if(drbench_switch(argv[i], "datfile", v) && v && *v) datfile = v;
     else if(drbench_switch(argv[i], "verbose", v) ||
 	    drbench_switch(argv[i], "debug", v)) {
@@ -205,6 +210,7 @@ int main(int argc, char **argv)
       return 1;
     }
   }
+  if(!hook.Check()) return 1;
 
   cout << ProgramName << " version " << VersionString << "\n";
   cout << "Host: " << drbench_hostname().c_str() << "\n";
@@ -231,6 +237,7 @@ int main(int argc, char **argv)
     }
   }
   int failed = 0;
+  int out_failed = 0;  // Plot file or dashboard output
   double sums[4] = { 0, 0, 0, 0 };
   for(i = 0; i < num_threads; i++) {
     t.JoinThread(threads[i]);
@@ -248,7 +255,7 @@ int main(int argc, char **argv)
   sprintf(line, "Total elapsed time %.3f seconds", elapsed);
   cout << line << "\n" << flush;
 
-  if(!datfile.is_null()) {
+  if(!datfile.is_null() || hook.Wanted()) {
     drbenchDat dat("memtest", VersionString, "Memory Benchmark");
     dat.Set("threads", (double)num_threads);
     dat.Set("num_inserts", (double)num_inserts);
@@ -260,7 +267,13 @@ int main(int argc, char **argv)
     for(int k = 0; k < 4; k++) dat.Add(vals, sums[k] / num_threads);
     dat.Set("item_values", vals.c_str());
     dat.Set("item_unit", "seconds (thread average)");
-    if(!dat.Write(datfile.c_str())) failed++;
+    if(!datfile.is_null() && !dat.Write(datfile.c_str())) out_failed++;
+    if(hook.Wanted()) {
+      drhookLines lines;
+      dat.Hook(lines, "Phase");
+      if(failed > 0) lines.Error("memtest: the run did not complete, see the table");
+      if(!hook.Finish(lines)) out_failed++;
+    }
   }
   delete[] threads;
   delete[] parms;
@@ -268,7 +281,7 @@ int main(int argc, char **argv)
     cout << failed << " thread(s) failed" << "\n" << flush;
     return 1;
   }
-  return 0;
+  return out_failed ? 1 : 0;
 }
 // ----------------------------------------------------------- //
 // ------------------------------- //

@@ -6,7 +6,7 @@
 // C++ Compiler Used: MSVC, GCC
 // Produced By: DataReel Software Development Team
 // File Creation Date: 2002
-// Date Last Modified: 11/18/2026
+// Date Last Modified: 11/19/2026
 // Copyright (c) 2001-2026 DataReel Software Development
 // ----------------------------------------------------------- //
 // ------------- Program Description and Details ------------- //
@@ -40,6 +40,8 @@ confirms every byte count, times are wall clock, and a total line
 covers all clients. Removed: -k and -r (remote server shutdown and
 restart), -c and -f. New: -d (download), a connect timeout, Windows
 builds.
+11/19/2026: --drsm and --submit: results for the DRSM dashboard through
+the DataReel Reporting Agents (hooks/README.md).
 */
 // ----------------------------------------------------------- //
 #include "gxdlcode.h"
@@ -173,6 +175,7 @@ void HelpMessage()
        << "\n";
   cout << "Exit status: 0 if every client finished, 1 otherwise." << "\n";
   cout << "\n" << flush;
+  drhook_usage("tcptest");
 }
 
 int main(int argc, char **argv)
@@ -182,6 +185,7 @@ int main(int argc, char **argv)
   double bytes = 150e6;
   char mode = 'U';
   gxString datfile;
+  drhookOptions hook("tcptest");
   const char *server = 0;
   for(int i = 1; i < argc; i++) {
     const char *a = argv[i];
@@ -197,6 +201,7 @@ int main(int argc, char **argv)
       }
     }
     else if(strcmp(a, "-d") == 0) mode = 'D';
+    else if(hook.Arg(a)) ;
     else if(strncmp(a, "--datfile=", 10) == 0 && a[10]) datfile = a + 10;
     else if(strncmp(a, "-n", 2) == 0) {
       if(!drbench_parse_count(a + 2, 1, 1000, clients)) {
@@ -225,6 +230,7 @@ int main(int argc, char **argv)
     }
     else server = a;
   }
+  if(!hook.Check()) return 1;
   if(!server) {
     HelpMessage();
     return 1;
@@ -274,7 +280,7 @@ int main(int argc, char **argv)
 	  " seconds, %s", ok, clients, total, elapsed,
 	  drbench_rate(total, elapsed).c_str());
   cout << line << "\n" << flush;
-  if(!datfile.is_null()) {
+  if(!datfile.is_null() || hook.Wanted()) {
     drbenchDat dat("tcptest", VersionString, "TCP Bandwidth Benchmark");
     dat.Set("server", server);
     dat.Set("clients", (double)clients);
@@ -295,7 +301,13 @@ int main(int argc, char **argv)
     dat.Set("items", items.c_str());
     dat.Set("item_values", vals.c_str());
     dat.Set("item_unit", "MB/s");
-    if(!dat.Write(datfile.c_str())) ok = 0;
+    if(!datfile.is_null() && !dat.Write(datfile.c_str())) ok = 0;
+    if(hook.Wanted()) {
+      drhookLines lines;
+      dat.Hook(lines);
+      if(ok != clients) lines.Error("tcptest: the run did not complete, see the table");
+      if(!hook.Finish(lines)) ok = 0;
+    }
   }
   delete[] threads;
   delete[] parms;

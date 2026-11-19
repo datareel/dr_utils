@@ -6,7 +6,7 @@
 // C++ Compiler Used: MSVC, GCC
 // Produced By: DataReel Software Development Team
 // File Creation Date: 2016
-// Date Last Modified: 11/18/2026
+// Date Last Modified: 11/19/2026
 // Copyright (c) 2001-2026 DataReel Software Development
 // ----------------------------------------------------------- //
 // ------------- Program Description and Details ------------- //
@@ -45,6 +45,8 @@ it timed nothing; this one keeps every result, checks the sums are
 finite, and prints the time and MFLOPS or GFLOPS. --div runs the
 formula of the c/flops program (a*b + a/b), counted as the 3
 operations it is (c/flops counted 5).
+11/19/2026: --drsm and --submit: results for the DRSM dashboard through
+the DataReel Reporting Agents (hooks/README.md).
 */
 // ----------------------------------------------------------- //
 #include "gxdlcode.h"
@@ -166,6 +168,7 @@ void HelpMessage()
   cout << "     --iterations=NUM      Loop iterations in all: 1m 1g 10g "
        << "(default 1g)" << "\n";
   cout << "\n" << flush;
+  drhook_usage("flops");
 }
 
 int main(int argc, char **argv)
@@ -174,6 +177,7 @@ int main(int argc, char **argv)
   double iterations = 1e9;
   int dp = 0, div = 0;
   gxString datfile;
+  drhookOptions hook("flops");
   for(int i = 1; i < argc; i++) {
     const char *v;
     if(drbench_switch(argv[i], "help", v) || strcmp(argv[i], "-?") == 0) {
@@ -199,6 +203,7 @@ int main(int argc, char **argv)
     }
     else if(drbench_switch(argv[i], "dp", v)) dp = 1;
     else if(drbench_switch(argv[i], "div", v)) div = 1;
+    else if(hook.Arg(argv[i])) ;
     else if(drbench_switch(argv[i], "datfile", v) && v && *v) datfile = v;
     else if(drbench_switch(argv[i], "verbose", v) ||
 	    drbench_switch(argv[i], "debug", v)) {
@@ -210,6 +215,7 @@ int main(int argc, char **argv)
       return 1;
     }
   }
+  if(!hook.Check()) return 1;
 
   unsigned long long per_thread =
     (unsigned long long)(iterations / num_threads);
@@ -243,6 +249,7 @@ int main(int argc, char **argv)
     }
   }
   int bad = 0;
+  int out_failed = 0;  // Plot file or dashboard output
   for(i = 0; i < num_threads; i++) {
     t.JoinThread(threads[i]);
     double r = parms[i].result;
@@ -255,7 +262,7 @@ int main(int argc, char **argv)
   sprintf(line, "Total elapsed time %.3f seconds, %s", elapsed,
 	  FlopsString(flops / (elapsed > 0 ? elapsed : 1e-9)).c_str());
   cout << line << "\n" << flush;
-  if(!datfile.is_null()) {
+  if(!datfile.is_null() || hook.Wanted()) {
     drbenchDat dat("flops", VersionString, "FLOPS Benchmark");
     dat.Set("threads", (double)num_threads);
     dat.Set("precision", dp ? "double" : "single");
@@ -274,7 +281,13 @@ int main(int argc, char **argv)
     dat.Set("items", items.c_str());
     dat.Set("item_values", vals.c_str());
     dat.Set("item_unit", "seconds");
-    if(!dat.Write(datfile.c_str())) bad++;
+    if(!datfile.is_null() && !dat.Write(datfile.c_str())) out_failed++;
+    if(hook.Wanted()) {
+      drhookLines lines;
+      dat.Hook(lines);
+      if(bad > 0) lines.Error("flops: the run did not complete, see the table");
+      if(!hook.Finish(lines)) out_failed++;
+    }
   }
   delete[] threads;
   delete[] parms;
@@ -283,7 +296,7 @@ int main(int argc, char **argv)
 	 << "\n" << flush;
     return 1;
   }
-  return 0;
+  return out_failed ? 1 : 0;
 }
 // ----------------------------------------------------------- //
 // ------------------------------- //

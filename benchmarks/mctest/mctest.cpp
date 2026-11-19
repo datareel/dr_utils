@@ -6,7 +6,7 @@
 // C++ Compiler Used: MSVC, GCC
 // Produced By: DataReel Software Development Team
 // File Creation Date: 2002
-// Date Last Modified: 11/18/2026
+// Date Last Modified: 11/19/2026
 // Copyright (c) 2001-2026 DataReel Software Development
 // ----------------------------------------------------------- //
 // ------------- Program Description and Details ------------- //
@@ -39,6 +39,8 @@ multicast benchmark client (bmarks.mc, then benchmarks/src/
 multicasttest/mctest), with the same -b -g -n -p switches and port
 (53898). Loss and order are counted with mcserv's sequence numbers,
 and the run ends by itself. New: -i, --timeout, Windows builds.
+11/19/2026: --drsm and --submit: results for the DRSM dashboard through
+the DataReel Reporting Agents (hooks/README.md).
 */
 // ----------------------------------------------------------- //
 #include "gxdlcode.h"
@@ -191,6 +193,7 @@ void HelpMessage()
   cout << "Exit status: 0 if every receiver saw the end of a run, 1 "
        << "otherwise." << "\n";
   cout << "\n" << flush;
+  drhook_usage("mctest");
 }
 
 int main(int argc, char **argv)
@@ -198,6 +201,7 @@ int main(int argc, char **argv)
   int port = DRSOCK_MC_PORT;
   unsigned long receivers = 1, timeout = 60;
   gxString group = DRSOCK_MC_GROUP, iface, datfile;
+  drhookOptions hook("mctest");
   for(int i = 1; i < argc; i++) {
     const char *a = argv[i];
     const char *v;
@@ -230,6 +234,7 @@ int main(int argc, char **argv)
 	return 1;
       }
     }
+    else if(hook.Arg(a)) ;
     else if(drbench_switch(a, "datfile", v) && v && *v) datfile = v;
     else if(a[0] != '-') group = a;
     else {
@@ -238,6 +243,7 @@ int main(int argc, char **argv)
       return 1;
     }
   }
+  if(!hook.Check()) return 1;
   if(!drsock_is_multicast(group.c_str())) {
     cout << group.c_str() << " is not a multicast group address (224.0.0.0 "
 	 << "to 239.255.255.255)" << "\n" << flush;
@@ -277,7 +283,7 @@ int main(int argc, char **argv)
   }
   cout << "All tests complete: " << ok << " of " << receivers
        << " receivers saw the end of a run" << "\n" << flush;
-  if(!datfile.is_null()) {
+  if(!datfile.is_null() || hook.Wanted()) {
     drbenchDat dat("mctest", VersionString, "Multicast Benchmark");
     dat.Set("group", group.c_str());
     dat.Set("port", (double)port);
@@ -302,7 +308,13 @@ int main(int argc, char **argv)
     dat.Set("item_unit", "MB/s");
     dat.Set("item2_values", loss.c_str());
     dat.Set("item2_unit", "% lost");
-    if(!dat.Write(datfile.c_str())) ok = 0;
+    if(!datfile.is_null() && !dat.Write(datfile.c_str())) ok = 0;
+    if(hook.Wanted()) {
+      drhookLines lines;
+      dat.Hook(lines);
+      if(ok != receivers) lines.Error("mctest: the run did not complete, see the table");
+      if(!hook.Finish(lines)) ok = 0;
+    }
   }
   delete[] threads;
   delete[] parms;
