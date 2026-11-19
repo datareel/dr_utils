@@ -167,7 +167,7 @@ if command -v python3 >/dev/null; then
   SP=$!
   for i in $(seq 1 50); do python3 -c "import socket; socket.create_connection(('127.0.0.1',$TP),1)" 2>/dev/null && break; sleep 0.1; done
   # The probe connection above is one bad request; --count counts it
-  check_rc "tcptest upload 2 clients" 0 "$BIN/tcptest" -p$TP -n2 -b65536 -s20M 127.0.0.1
+  check_rc "tcptest upload 2 clients" 0 "$BIN/tcptest" -p$TP -n2 -b65536 -s20M --datfile="$WORK/tcp.dat" 127.0.0.1
   has "tcptest total" 'All tests complete: 2 of 2 clients'
   wait $SP; SRC=$?
   if [ $SRC = 0 ] && grep -q 'upload 20000000 bytes' tcpserv.log; then ok "tcpserv logged the uploads"; else bad "tcpserv" "$(cat tcpserv.log)"; fi
@@ -180,12 +180,12 @@ if command -v python3 >/dev/null; then
   UP=$(python3 -c 'import socket; s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM); s.bind(("127.0.0.1",0)); print(s.getsockname()[1]); s.close()')
   "$BIN/udpserv" -p$UP -l127.0.0.1 --count=2 > udpserv.log 2>&1 &
   SP=$!; sleep 0.5
-  check_rc "udptest 2 clients at 200M" 0 "$BIN/udptest" -p$UP -n2 -s5M -r200M 127.0.0.1
+  check_rc "udptest 2 clients at 200M" 0 "$BIN/udptest" -p$UP -n2 -s5M -r200M --datfile="$WORK/udp.dat" 127.0.0.1
   has "udptest report" 'server received [0-9]+ \([0-9.]+% lost'; has "udptest total" 'All tests complete: 2 of 2 clients reported'
   wait $SP
   if grep -q 'run .*datagrams' udpserv.log; then ok "udpserv logged the runs"; else bad "udpserv" "$(cat udpserv.log)"; fi
   check_rc "udptest no server" 1 "$BIN/udptest" -p$UP -s100k 127.0.0.1; has "no report" 'no report from the server'
-  "$BIN/mctest" -n2 -i127.0.0.1 -p$UP --timeout=10 > mctest.log 2>&1 &
+  "$BIN/mctest" -n2 -i127.0.0.1 -p$UP --timeout=10 --datfile="$WORK/mc.dat" > mctest.log 2>&1 &
   MP=$!; sleep 0.5
   check_rc "mcserv on loopback" 0 "$BIN/mcserv" -i127.0.0.1 -p$UP -s2M -r100M; has "mcserv sent" '^Sent 1333 datagrams'
   wait $MP; MRC=$?
@@ -203,11 +203,49 @@ check_rc "flops --div (c/flops formula)" 0 "$BIN/flops" --div --num-threads=2 --
 check_rc "flops --div --dp" 0 "$BIN/flops" --div --dp --iterations=50m
 check_rc "flops bad iterations" 1 "$BIN/flops" --iterations=10
 if python3 -c 'import matplotlib' 2>/dev/null; then
-  check_rc "plot_disk_benchmark.py PNG" 0 python3 "$TOP/benchmarks/plot/plot_disk_benchmark.py" "$WORK/disk.dat" "$WORK/disk.png"
-  if file "$WORK/disk.png" | grep -q 'PNG image'; then ok "plot PNG file"; else bad "plot PNG file"; fi
-  check_rc "plot --averages" 0 python3 "$TOP/benchmarks/plot/plot_disk_benchmark.py" --averages "$WORK/disk.dat" "$WORK/disk_avg.png"
+  PL="$TOP/benchmarks/plot/dr_plot.py"
+  check_rc "dr_plot disk" 0 python3 "$PL" -o "$WORK/disk.png" "$WORK/disk.dat"
+  check_rc "dr_plot disk --averages" 0 python3 "$PL" --averages -o "$WORK/disk_avg.png" "$WORK/disk.dat"
+  cp "$WORK/disk.dat" "$WORK/disk2.dat"
+  check_rc "dr_plot disk compare" 0 python3 "$PL" -o "$WORK/disk_cmp.png" "$WORK/disk.dat" "$WORK/disk2.dat"
+  "$BIN/cputest" --num-threads=2 --buf-size=2m --datfile="$WORK/cpu2.dat" >/dev/null
+  "$BIN/cputest" --num-threads=1 --buf-size=2m --datfile="$WORK/cpu1.dat" >/dev/null
+  "$BIN/memtest" --num-inserts=2k --datfile="$WORK/mem.dat" >/dev/null
+  "$BIN/flops" --iterations=10m --datfile="$WORK/flops.dat" >/dev/null
+  for f in cpu2 mem flops tcp udp mc; do
+    if grep -q '^\[BENCHMARK\]' "$WORK/$f.dat" 2>/dev/null && grep -q '^item_values=' "$WORK/$f.dat"; then ok "$f --datfile"; else bad "$f --datfile" "$(head -5 "$WORK/$f.dat" 2>&1)"; fi
+    check_rc "dr_plot $f" 0 python3 "$PL" -o "$WORK/$f.png" "$WORK/$f.dat"
+  done
+  check_rc "dr_plot cputest compare" 0 python3 "$PL" -o "$WORK/cpu_cmp.png" "$WORK/cpu1.dat" "$WORK/cpu2.dat"
+  "$BIN/sar_cpu_stats" --csv --all-cpus "$TOP/tests/data/sar/sar_rhel7_ampm.txt" "$TOP/tests/data/sar/sar_steal_spike.txt" > "$WORK/sar.csv"
+  check_rc "dr_plot sar csv" 0 python3 "$PL" -o "$WORK/sar.png" "$WORK/sar.csv"
+  check_rc "dr_plot sar one cpu" 0 python3 "$PL" --cpu 3 -o "$WORK/sar3.png" "$WORK/sar.csv"
+  check_rc "dr_plot sar missing cpu" 1 python3 "$PL" --cpu 99 -o "$WORK/sar99.png" "$WORK/sar.csv"
+  "$TOP/benchmarks/scripts/watch_mem_usage.sh" -n 2 -i 1 > "$WORK/mem.log"
+  check_rc "dr_plot memory log" 0 python3 "$PL" -o "$WORK/memlog.png" "$WORK/mem.log"
+  check_rc "dr_plot mixed benchmarks refused" 1 python3 "$PL" -o "$WORK/x.png" "$WORK/cpu1.dat" "$WORK/mem.dat"
+  check_rc "dr_plot mixed kinds refused" 1 python3 "$PL" -o "$WORK/x.png" "$WORK/cpu1.dat" "$WORK/sar.csv"
+  check_rc "dr_plot unknown file" 1 python3 "$PL" -o "$WORK/x.png" "$TOP/README.md"
+  n=0; for f in disk disk_avg disk_cmp cpu2 mem flops tcp udp mc cpu_cmp sar sar3 memlog; do file "$WORK/$f.png" | grep -q 'PNG image' && n=$((n+1)); done
+  if [ $n = 13 ]; then ok "13 PNG files"; else bad "PNG files" "$n of 13"; fi
+  RP="$TOP/benchmarks/plot/dr_report.py"
+  mkdir -p "$WORK/report_in"
+  cp "$WORK"/cpu1.dat "$WORK"/cpu2.dat "$WORK"/mem.dat "$WORK"/flops.dat "$WORK"/tcp.dat "$WORK"/udp.dat "$WORK"/mc.dat "$WORK"/disk.dat "$WORK"/sar.csv "$WORK"/mem.log "$WORK/report_in/"
+  echo "not a result" > "$WORK/report_in/notes.csv"
+  check_rc "dr_report folder" 0 python3 "$RP" -o "$WORK/report.html" --title "dr_utils test report" --csv "$WORK/summary.csv" "$WORK/report_in"
+  has "report counts" '(10 result files, 1 skipped)'
+  R=$(cat "$WORK/report.html")
+  for want in '<title>dr_utils test report</title>' 'id="summary"' 'id="b-cputest"' 'id="b-disktest"' 'id="b-udptest"' 'id="sar"' 'id="mem"' 'Comparison of 2 runs' 'bad samples' 'Skipped files'; do
+    if echo "$R" | grep -q -- "$want"; then ok "report has $want"; else bad "report has $want"; fi
+  done
+  imgs=$(grep -o 'data:image/png;base64' "$WORK/report.html" | wc -l)
+  if [ "$imgs" = 11 ]; then ok "report has $imgs charts"; else bad "report charts" "$imgs"; fi
+  if [ "$(wc -l < "$WORK/summary.csv")" = 9 ] && head -1 "$WORK/summary.csv" | grep -q '^benchmark,host,date,build,settings,result,file$'; then ok "report summary CSV"; else bad "report summary CSV" "$(cat "$WORK/summary.csv")"; fi
+  check_rc "dr_report --no-runs" 0 python3 "$RP" -o "$WORK/report2.html" --no-runs "$WORK/report_in"
+  check_rc "dr_report missing file" 1 python3 "$RP" -o "$WORK/report3.html" "$WORK/none.dat"
+  check_rc "dr_report nothing to report" 1 python3 "$RP" -o "$WORK/report4.html" "$TOP/tests/data/sar"
 else
-  bad "python3 matplotlib is needed for the plot test (python3-matplotlib)"
+  bad "python3 matplotlib is needed for the plot tests (python3-matplotlib)"
 fi
 check_rc "watch_mem_usage.sh -n 2" 0 "$TOP/benchmarks/scripts/watch_mem_usage.sh" -n 2 -i 1; has "mem lines" '^[0-9-]+ [0-9:]+ [0-9]+$'
 check_rc "watch_mem.sh -n 1" 0 "$TOP/benchmarks/scripts/watch_mem.sh" -n 1; has "meminfo" 'MemTotal:'

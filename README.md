@@ -1,4 +1,4 @@
-# dr_utils 1.2
+# dr_utils 1.3
 
 Small command line file and network tools for Windows and Linux, built on the [DataReel](https://datareel.com) C++ library, version 6.4.1. They are open source (GNU LGPL 3) versions of tools Douglas Gaer wrote from 1999 to 2010. DataReel 7.4 does not already have them.
 
@@ -185,7 +185,7 @@ Sizes and counts take decimal suffixes: `1k` is 1000, `1m` is 1000000, `1g` is 1
 ### cputest
 
 ```
-cputest [--num-threads=NUM] [--buf-size=SIZE] [--repeat=NUM]
+cputest [--num-threads=NUM] [--buf-size=SIZE] [--repeat=NUM] [--datfile=fname]
 ```
 
 Fills a buffer (default 100m) with random bytes and splits it between the threads (default 1). Each thread compresses its part with zlib at level 9, uncompresses it and checks that it matches. The output has each thread's time, the average, and the total time with the rate. Run it with one thread for single-core speed and one thread per core for the whole CPU.
@@ -201,7 +201,7 @@ Creates a DataReel B-tree index file (order 128, default `testfile.btx` in the c
 ### memtest
 
 ```
-memtest [--num-threads=NUM] [--num-inserts=NUM]
+memtest [--num-threads=NUM] [--num-inserts=NUM] [--datfile=fname]
 ```
 
 Each thread builds its own unbalanced binary search tree of "Item n" strings (default 25k keys, at most 1m) and times the insert, find, delete and insert-again phases. The keys arrive nearly sorted, so the tree is deep and the time grows faster than the key count. Compare runs that use the same `--num-inserts`.
@@ -210,7 +210,7 @@ Each thread builds its own unbalanced binary search tree of "Item n" strings (de
 
 ```
 tcpserv [-p port] [-l address] [--count=N] [--timeout=S] [--max-bytes=SIZE]
-tcptest [-b size] [-d] [-n clients] [-p port] [-s bytes] server
+tcptest [-b size] [-d] [-n clients] [-p port] [-s bytes] [--datfile=fname] server
 ```
 
 Start `tcpserv` on one host (port 53897 by default, all addresses unless `-l` is given), then run `tcptest` on another. Each client connects and uploads `-s` bytes (default 150M) in `-b` byte writes (default 1500). With `-d` it downloads them instead. The server confirms the byte count, and each client and the total print their rates. The server runs until Ctrl-C, or until `--count` transfers are done. Clients cannot stop or restart it.
@@ -219,7 +219,7 @@ Start `tcpserv` on one host (port 53897 by default, all addresses unless `-l` is
 
 ```
 udpserv [-p port] [-l address] [--count=N]
-udptest [-b size] [-n clients] [-p port] [-r rate] [-s bytes] server
+udptest [-b size] [-n clients] [-p port] [-r rate] [-s bytes] [--datfile=fname] server
 ```
 
 The clients send numbered datagrams of `-b` bytes (default 1500, at most 65507) to `udpserv`. They send as fast as the host can, or at `-r` bits a second per client (for example `-r500M`). At the end the server reports what arrived, and each client prints its send rate, its receive rate and the loss.
@@ -227,7 +227,7 @@ The clients send numbered datagrams of `-b` bytes (default 1500, at most 65507) 
 ### mcserv and mctest
 
 ```
-mctest [-g group] [-i address] [-n receivers] [-p port] [--timeout=S]
+mctest [-g group] [-i address] [-n receivers] [-p port] [--timeout=S] [--datfile=fname]
 mcserv [-b size] [-g group] [-i address] [-p port] [-r rate] [-s bytes] [--seconds=N] [--ttl=N] [--no-loop]
 ```
 
@@ -238,16 +238,58 @@ Allow the benchmark ports (TCP 53897, UDP 53897 and 53898) in the host firewalls
 ### flops
 
 ```
-flops [--num-threads=NUM] [--dp] [--div] [--iterations=NUM]
+flops [--num-threads=NUM] [--dp] [--div] [--iterations=NUM] [--datfile=fname]
 ```
 
 `--div` runs the formula of the old c/flops program: a multiply, a divide and an add per element (`a*c + a/b`), counted as 3 operations. The old program counted 5, and its loop was removed by the compiler. Code with divisions runs slower than multiply-add, so this mode gives the rate such code gets.
 
 Runs multiply-add chains over a small array that stays in the CPU cache, in single precision (or double with `--dp`). The iterations (default 1g) are split between the threads. It prints MFLOPS or GFLOPS. The rate depends on the compiler and its flags (vector units), so compare machines with the same build.
 
-### Plot and watch scripts
+### Plot data files and dr_plot.py
 
-- `benchmarks/plot/plot_disk_benchmark.py disk.dat [disk.png] [--averages]` plots a `disktest --datfile` file. It needs Python 3 with matplotlib.
+Every benchmark takes `--datfile=fname` (disktest, cputest, memtest, flops, tcptest, udptest, mctest) and writes its results as a small INI file: the settings, the main result (`total`), one value per thread, client, receiver or phase, and a `[HOSTINFO]` section (host, date, compiler). `benchmarks/plot/dr_plot.py` (Python 3 with matplotlib) plots those files, `sar_cpu_stats --csv` output and `watch_mem_usage.sh` logs. It tells the kind from the contents:
+
+| Input | Plot |
+|---|---|
+| one benchmark `--datfile` | a bar per thread, client, receiver or phase, the total in the title; UDP and multicast also show the loss per client |
+| several files of one benchmark | one bar per run (host, date, threads or clients) for the main result: compare machines, builds or thread counts |
+| `disktest --datfile` | insert, find, delete and reinsert times for every 10% of the keys (`--averages` for milliseconds per key); several files compare the phase totals |
+| `sar_cpu_stats --csv` | CPU use over time, stacked (user, nice, system, irq + soft, iowait, steal), one panel per host, gaps left empty and bad samples marked in red; `--cpu N` for one CPU (with `--all-cpus`) |
+| `watch_mem_usage.sh` log | used memory over time |
+
+```
+cputest --num-threads=8 --datfile=cpu_host1.dat
+dr_plot.py -o cpu.png cpu_host1.dat            # one run
+dr_plot.py -o cpu_cmp.png cpu_host1.dat cpu_host2.dat   # compare runs
+sar_cpu_stats --csv sar_host1.txt > host1.csv
+dr_plot.py -o host1_cpu.png host1.csv
+```
+
+Without `-o` the plot opens in a window.
+
+### Reports: dr_report.py
+
+`benchmarks/plot/dr_report.py` builds one HTML report from a folder (or a list) of result files: `--datfile` files, `sar_cpu_stats --csv` files and `watch_mem_usage.sh` logs. The report has:
+
+- a summary table of every run (benchmark, host, date, compiler, settings, result);
+- a section for each benchmark, with a comparison chart when there are several runs (machines, builds, thread counts) and a chart for each run;
+- for each sar file, a table of averages and peaks per host (user, system, iowait, steal, lowest idle), the count of bad samples, and the CPU chart;
+- the memory logs.
+
+The charts are inside the HTML file, so the one file can be mailed, archived or printed. Files in the folder that are not results are listed as skipped.
+
+```
+mkdir results
+cputest --num-threads=8 --datfile=results/cpu.dat
+disktest --file=/data/testfile.btx --datfile=results/disk.dat
+sar_cpu_stats --csv sar_host1.txt > results/host1_sar.csv
+dr_report.py -o host1_report.html --title "host1 sizing" --csv host1_summary.csv results
+```
+
+`--csv` also writes the summary table as CSV, and `--no-runs` keeps only the comparison charts. dr_plot.py and dr_report.py are tested on Linux (`tests/run_tests.sh`); the result files from Windows runs plot the same way.
+
+### Watch scripts
+
 - `benchmarks/scripts/watch_system.sh [-i sec] [-n count] [STATSONLY]` records the release, kernel, CPU, memory and disk statistics from /proc (between `START name` and `END name` lines), then runs `top -b` while a benchmark runs (Linux).
 - `benchmarks/scripts/watch_mem.sh` prints `free` and /proc/meminfo every interval. `watch_mem_usage.sh` prints one "date time used-KB" line per interval, for plotting (Linux).
 
@@ -286,7 +328,7 @@ Reads sar text reports (`LC_ALL=C sar -u -f /var/log/sa/saDD > file.txt`, or `sa
 | internet-test | the 2005 Internet connectivity test |
 | pingscan, dnsscan, portscan, netpscan, arpscan, getmac | the 1999-2010 network scan programs |
 | cputest, disktest, memtest, tcpserv/tcptest, udpserv/udptest, mcserv/mctest | the 2002-2010 bmarks programs and their 2016-2019 versions in work_programs/benchmarks |
-| flops, plot_disk_benchmark.py, watch scripts | work_programs/benchmarks (2009-2019) |
+| flops, dr_plot.py, watch scripts | work_programs/benchmarks (2009-2019); dr_plot.py grew from the 2016 disk plotter |
 | sar_cpu_stats | the 2018 system_stats_analysis_tool read_cpu_stats (unfinished there) |
 
 The 1.0 versions keep the original switches and output lines, and fix these problems in the old versions:

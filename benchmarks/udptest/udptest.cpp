@@ -183,6 +183,8 @@ void HelpMessage()
        << DRSOCK_UDP_PORT << ")" << "\n";
   cout << "-r = Send rate per client in bits a second: -r100M -r1G "
        << "(default: no limit)" << "\n";
+  cout << "--datfile=fname = Write the results to a plot data file "
+       << "(dr_plot.py)" << "\n";
   cout << "-s = Specify the number of bytes per client, ranges -s1K to -s100G"
        << " (default 150M)" << "\n";
   cout << "\n";
@@ -199,6 +201,7 @@ int main(int argc, char **argv)
   unsigned long clients = 1;
   double bytes = 150e6, rate = 0;
   const char *server = 0;
+  gxString datfile;
   for(int i = 1; i < argc; i++) {
     const char *a = argv[i];
     if(strcmp(a, "-?") == 0 || strcmp(a, "--help") == 0) {
@@ -231,6 +234,7 @@ int main(int argc, char **argv)
 	return 1;
       }
     }
+    else if(strncmp(a, "--datfile=", 10) == 0 && a[10]) datfile = a + 10;
     else if(strncmp(a, "-s", 2) == 0) {
       if(!drbench_parse_size(a + 2, 100e9, bytes) || bytes < 1000) {
 	cout << "Bad number of bytes to send specified: " << a + 2 << "\n"
@@ -307,6 +311,33 @@ int main(int argc, char **argv)
 	  sent_total ? 100.0 * (sent_total - (double)received) / sent_total : 0,
 	  drbench_rate((double)recv_bytes, span).c_str());
   cout << line << "\n" << flush;
+  if(!datfile.is_null()) {
+    drbenchDat dat("udptest", VersionString, "UDP Bandwidth Benchmark");
+    dat.Set("server", server);
+    dat.Set("clients", (double)clients);
+    dat.Set("datagram", (double)dgram);
+    dat.Set("datagrams", (double)count);
+    dat.Set("rate_limit", rate);
+    dat.Set("total", (double)recv_bytes / (span > 0 ? span : 1e-9) / 1e6);
+    dat.Set("total_unit", "MB/s");
+    dat.Set("total_label", "Received by the server");
+    gxString items, vals, loss;
+    for(i = 0; i < clients; i++) {
+      char name[32];
+      sprintf(name, "Client %lu", i);
+      dat.Add(items, name);
+      dat.Add(vals, parms[i].span > 0 ? 
+	      (double)parms[i].recv_bytes / parms[i].span / 1e6 : 0.0);
+      dat.Add(loss, count ? 100.0 * (double)(count - (parms[i].received < 
+	      count ? parms[i].received : count)) / (double)count : 0.0);
+    }
+    dat.Set("items", items.c_str());
+    dat.Set("item_values", vals.c_str());
+    dat.Set("item_unit", "MB/s");
+    dat.Set("item2_values", loss.c_str());
+    dat.Set("item2_unit", "% lost");
+    if(!dat.Write(datfile.c_str())) ok = 0;
+  }
   delete[] threads;
   delete[] parms;
   return ok == clients ? 0 : 1;

@@ -157,6 +157,8 @@ void HelpMessage()
   cout << "     --version             Print version number and exit" << "\n";
   cout << "     --num-threads=NUM     Number of threads to spawn (default 1,"
        << " max 1024)" << "\n";
+  cout << "     --datfile=fname       Write the results to a plot data file "
+       << "(dr_plot.py)" << "\n";
   cout << "     --num-inserts=NUM     Number of key insertions per thread: "
        << "1k 25k 100k" << "\n"
        << "                           (default 25k, max 1m)" << "\n";
@@ -167,6 +169,7 @@ int main(int argc, char **argv)
 {
   unsigned long num_threads = 1;
   unsigned long num_inserts = 25000;
+  gxString datfile;
 
   for(int i = 1; i < argc; i++) {
     const char *v;
@@ -191,6 +194,7 @@ int main(int argc, char **argv)
 	return 1;
       }
     }
+    else if(drbench_switch(argv[i], "datfile", v) && v && *v) datfile = v;
     else if(drbench_switch(argv[i], "verbose", v) ||
 	    drbench_switch(argv[i], "debug", v)) {
       // Accepted for the old command lines
@@ -244,6 +248,20 @@ int main(int argc, char **argv)
   sprintf(line, "Total elapsed time %.3f seconds", elapsed);
   cout << line << "\n" << flush;
 
+  if(!datfile.is_null()) {
+    drbenchDat dat("memtest", VersionString, "Memory Benchmark");
+    dat.Set("threads", (double)num_threads);
+    dat.Set("num_inserts", (double)num_inserts);
+    dat.Set("total", elapsed);
+    dat.Set("total_unit", "seconds");
+    dat.Set("total_label", "Total elapsed time");
+    dat.Set("items", "Insert,Find,Delete,Reinsert");
+    gxString vals;
+    for(int k = 0; k < 4; k++) dat.Add(vals, sums[k] / num_threads);
+    dat.Set("item_values", vals.c_str());
+    dat.Set("item_unit", "seconds (thread average)");
+    if(!dat.Write(datfile.c_str())) failed++;
+  }
   delete[] threads;
   delete[] parms;
   if(failed) {

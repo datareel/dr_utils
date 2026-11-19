@@ -221,6 +221,58 @@ inline const char *drbench_build()
 #endif
 }
 
+// A plot data file (--datfile): INI sections that dr_plot.py reads.
+//   [BENCHMARK] name, version, settings, the main result (total,
+//               total_unit, total_label) and one value per thread,
+//               client or phase (items, item_values, item_unit;
+//               optional item2_values, item2_unit)
+//   [HOSTINFO]  host, date, build, title
+class drbenchDat
+{
+public:
+  drbenchDat(const char *name, const char *version, const char *title) {
+    body << "[BENCHMARK]\n" << "name=" << name << "\n" 
+	 << "version=" << version << "\n";
+    this->title = title;
+  }
+  void Set(const char *key, const char *value) {
+    body << key << "=" << value << "\n";
+  }
+  void Set(const char *key, double value) {
+    char buf[64];
+    sprintf(buf, "%.6g", value);
+    Set(key, buf);
+  }
+  // A comma separated list, built one value at a time
+  void Add(gxString &list, const char *value) {
+    if(!list.is_null()) list << ",";
+    list << value;
+  }
+  void Add(gxString &list, double value) {
+    char buf[64];
+    sprintf(buf, "%.6g", value);
+    Add(list, buf);
+  }
+  // Write the file. Returns 0 and prints an error if it cannot.
+  int Write(const char *fname) {
+    FILE *fp = fopen(fname, "w");
+    if(!fp) {
+      fprintf(stdout, "Error could not write %s\n", fname);
+      return 0;
+    }
+    fprintf(fp, "%s\n[HOSTINFO]\nhost=%s\ndate=%s\nbuild=%s\ntitle=%s\n",
+	    body.c_str(), drbench_hostname().c_str(), drbench_date().c_str(),
+	    drbench_build(), title.c_str());
+    fclose(fp);
+    fprintf(stdout, "Plot data written to %s\n", fname);
+    fflush(stdout);
+    return 1;
+  }
+private:
+  gxString body;
+  gxString title;
+};
+
 // Console output from several threads, one message at a time
 class drbenchConsole
 {

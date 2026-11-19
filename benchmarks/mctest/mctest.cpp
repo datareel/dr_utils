@@ -68,6 +68,8 @@ struct RecvParm {
   int dgram;
   int timeout_ms;
   unsigned long received, expected, out_of_order;
+  unsigned long long bytes;
+  double span;
   int ok;
 };
 
@@ -148,6 +150,8 @@ void *RecvThread::ThreadEntryRoutine(gxThread_t *thread)
     if(!ended) sent = next_seq; // No end of run: count up to the last seen
     p->expected = sent;
     double span = last - first;
+    p->bytes = bytes;
+    p->span = span;
     double loss = sent ? 100.0 * (double)(sent - (p->received < sent ?
 						  p->received : sent))
       / (double)sent : 0;
@@ -177,6 +181,8 @@ void HelpMessage()
   cout << "-n[number]   = Number of receivers, -n1 to -n100" << "\n";
   cout << "-p[port]     = Port number, -p1024 to -p65535 (default "
        << DRSOCK_MC_PORT << ")" << "\n";
+  cout << "--datfile=fname = Write the results to a plot data file "
+       << "(dr_plot.py)" << "\n";
   cout << "--timeout=S  = Stop when nothing arrives for S seconds (default "
        << "60)" << "\n";
   cout << "\n";
@@ -191,7 +197,7 @@ int main(int argc, char **argv)
 {
   int port = DRSOCK_MC_PORT;
   unsigned long receivers = 1, timeout = 60;
-  gxString group = DRSOCK_MC_GROUP, iface;
+  gxString group = DRSOCK_MC_GROUP, iface, datfile;
   for(int i = 1; i < argc; i++) {
     const char *a = argv[i];
     const char *v;
@@ -224,6 +230,7 @@ int main(int argc, char **argv)
 	return 1;
       }
     }
+    else if(drbench_switch(a, "datfile", v) && v && *v) datfile = v;
     else if(a[0] != '-') group = a;
     else {
       cout << "Unknown switch " << a << "\n" << flush;
@@ -253,6 +260,9 @@ int main(int argc, char **argv)
     parms[i].port = port;
     parms[i].timeout_ms = (int)timeout * 1000;
     parms[i].ok = 0;
+    parms[i].bytes = 0;
+    parms[i].span = 0;
+    parms[i].received = parms[i].expected = parms[i].out_of_order = 0;
     threads[i] = t.CreateThread((void *)&parms[i]);
     if(!threads[i] || threads[i]->GetThreadError() != gxTHREAD_NO_ERROR) {
       cout << "Error could not start receiver " << i << "\n" << flush;
@@ -267,6 +277,33 @@ int main(int argc, char **argv)
   }
   cout << "All tests complete: " << ok << " of " << receivers
        << " receivers saw the end of a run" << "\n" << flush;
+  if(!datfile.is_null()) {
+    drbenchDat dat("mctest", VersionString, "Multicast Benchmark");
+    dat.Set("group", group.c_str());
+    dat.Set("port", (double)port);
+    dat.Set("receivers", (double)receivers);
+    gxString items, vals, loss;
+    double sum = 0;
+    for(i = 0; i < receivers; i++) {
+      char name[32];
+      sprintf(name, "Receiver %lu", i);
+      dat.Add(items, name);
+      double r = parms[i].span > 0 ? (double)parms[i].bytes / parms[i].span / 1e6 : 0;
+      sum += r;
+      dat.Add(vals, r);
+      unsigned long e = parms[i].expected, g = parms[i].received;
+      dat.Add(loss, e ? 100.0 * (double)(e - (g < e ? g : e)) / (double)e : 0.0);
+    }
+    dat.Set("total", receivers ? sum / receivers : 0.0);
+    dat.Set("total_unit", "MB/s");
+    dat.Set("total_label", "Average per receiver");
+    dat.Set("items", items.c_str());
+    dat.Set("item_values", vals.c_str());
+    dat.Set("item_unit", "MB/s");
+    dat.Set("item2_values", loss.c_str());
+    dat.Set("item2_unit", "% lost");
+    if(!dat.Write(datfile.c_str())) ok = 0;
+  }
   delete[] threads;
   delete[] parms;
   return ok == receivers ? 0 : 1;

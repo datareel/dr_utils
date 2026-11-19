@@ -151,6 +151,8 @@ void HelpMessage()
        << " max 1024)" << "\n";
   cout << "     --buf-size=SIZE       Size of memory buffer: 24k 240m 2.4g "
        << "(default 100m)" << "\n";
+  cout << "     --datfile=fname       Write the results to a plot data file "
+       << "(dr_plot.py)" << "\n";
   cout << "     --repeat=NUM          Passes over the buffer (default 1)"
        << "\n";
   cout << "\n";
@@ -164,6 +166,7 @@ int main(int argc, char **argv)
   unsigned long num_threads = 1;
   double buf_size = 100e6;
   unsigned long repeat = 1;
+  gxString datfile;
 
   for(int i = 1; i < argc; i++) {
     const char *v;
@@ -187,6 +190,7 @@ int main(int argc, char **argv)
 	return 1;
       }
     }
+    else if(drbench_switch(argv[i], "datfile", v) && v && *v) datfile = v;
     else if(drbench_switch(argv[i], "repeat", v)) {
       if(!drbench_parse_count(v, 1, 1000000, repeat)) {
 	cout << "Error repeat value is not valid" << "\n" << flush;
@@ -271,6 +275,27 @@ int main(int argc, char **argv)
 	  drbench_rate(bytes, elapsed).c_str());
   cout << line << "\n" << flush;
 
+  if(!datfile.is_null()) {
+    drbenchDat dat("cputest", VersionString, "CPU Speed Benchmark");
+    dat.Set("threads", (double)num_threads);
+    dat.Set("buf_size", (double)total);
+    dat.Set("repeat", (double)repeat);
+    dat.Set("total", bytes / (elapsed > 0 ? elapsed : 1e-9) / 1e6);
+    dat.Set("total_unit", "MB/s");
+    dat.Set("total_label", "zlib compress + uncompress rate");
+    dat.Set("elapsed", elapsed);
+    gxString items, vals;
+    for(i = 0; i < num_threads; i++) {
+      char name[32];
+      sprintf(name, "Thread %lu", i);
+      dat.Add(items, name);
+      dat.Add(vals, parms[i].run_time);
+    }
+    dat.Set("items", items.c_str());
+    dat.Set("item_values", vals.c_str());
+    dat.Set("item_unit", "seconds");
+    if(!dat.Write(datfile.c_str())) failed++;
+  }
   delete[] threads;
   delete[] parms;
   delete[] buf;

@@ -161,6 +161,8 @@ void HelpMessage()
        << "single precision)" << "\n";
   cout << "     --div                 The c/flops test: a*b + a/b (3 FLOPs, "
        << "with a divide)" << "\n";
+  cout << "     --datfile=fname       Write the results to a plot data file "
+       << "(dr_plot.py)" << "\n";
   cout << "     --iterations=NUM      Loop iterations in all: 1m 1g 10g "
        << "(default 1g)" << "\n";
   cout << "\n" << flush;
@@ -171,6 +173,7 @@ int main(int argc, char **argv)
   unsigned long num_threads = 1;
   double iterations = 1e9;
   int dp = 0, div = 0;
+  gxString datfile;
   for(int i = 1; i < argc; i++) {
     const char *v;
     if(drbench_switch(argv[i], "help", v) || strcmp(argv[i], "-?") == 0) {
@@ -196,6 +199,7 @@ int main(int argc, char **argv)
     }
     else if(drbench_switch(argv[i], "dp", v)) dp = 1;
     else if(drbench_switch(argv[i], "div", v)) div = 1;
+    else if(drbench_switch(argv[i], "datfile", v) && v && *v) datfile = v;
     else if(drbench_switch(argv[i], "verbose", v) ||
 	    drbench_switch(argv[i], "debug", v)) {
       // Accepted for the old command lines
@@ -251,6 +255,27 @@ int main(int argc, char **argv)
   sprintf(line, "Total elapsed time %.3f seconds, %s", elapsed,
 	  FlopsString(flops / (elapsed > 0 ? elapsed : 1e-9)).c_str());
   cout << line << "\n" << flush;
+  if(!datfile.is_null()) {
+    drbenchDat dat("flops", VersionString, "FLOPS Benchmark");
+    dat.Set("threads", (double)num_threads);
+    dat.Set("precision", dp ? "double" : "single");
+    dat.Set("mode", div ? "a*c+a/b" : "multiply-add");
+    dat.Set("total", flops / (elapsed > 0 ? elapsed : 1e-9) / 1e9);
+    dat.Set("total_unit", "GFLOPS");
+    dat.Set("total_label", div ? "a*c + a/b rate" : "Multiply-add rate");
+    dat.Set("elapsed", elapsed);
+    gxString items, vals;
+    for(i = 0; i < num_threads; i++) {
+      char name[32];
+      sprintf(name, "Thread %lu", i);
+      dat.Add(items, name);
+      dat.Add(vals, parms[i].secs);
+    }
+    dat.Set("items", items.c_str());
+    dat.Set("item_values", vals.c_str());
+    dat.Set("item_unit", "seconds");
+    if(!dat.Write(datfile.c_str())) bad++;
+  }
   delete[] threads;
   delete[] parms;
   if(bad) {

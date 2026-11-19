@@ -164,6 +164,8 @@ void HelpMessage()
   cout << "-n = Specify a number of clients, ranges -n1 to -n1000" << "\n";
   cout << "-p = Specify a port number, ranges -p1024 to -p65535 (default "
        << DRSOCK_TCP_PORT << ")" << "\n";
+  cout << "--datfile=fname = Write the results to a plot data file "
+       << "(dr_plot.py)" << "\n";
   cout << "-s = Specify the number of bytes per client, ranges -s1K to -s100G"
        << " (default 150M)" << "\n";
   cout << "\n";
@@ -179,6 +181,7 @@ int main(int argc, char **argv)
   unsigned long clients = 1;
   double bytes = 150e6;
   char mode = 'U';
+  gxString datfile;
   const char *server = 0;
   for(int i = 1; i < argc; i++) {
     const char *a = argv[i];
@@ -194,6 +197,7 @@ int main(int argc, char **argv)
       }
     }
     else if(strcmp(a, "-d") == 0) mode = 'D';
+    else if(strncmp(a, "--datfile=", 10) == 0 && a[10]) datfile = a + 10;
     else if(strncmp(a, "-n", 2) == 0) {
       if(!drbench_parse_count(a + 2, 1, 1000, clients)) {
 	cout << "Bad number of clients specified: " << a + 2 << "\n" << flush;
@@ -270,6 +274,29 @@ int main(int argc, char **argv)
 	  " seconds, %s", ok, clients, total, elapsed,
 	  drbench_rate(total, elapsed).c_str());
   cout << line << "\n" << flush;
+  if(!datfile.is_null()) {
+    drbenchDat dat("tcptest", VersionString, "TCP Bandwidth Benchmark");
+    dat.Set("server", server);
+    dat.Set("clients", (double)clients);
+    dat.Set("bytes", (double)(unsigned long long)bytes);
+    dat.Set("block", (double)block);
+    dat.Set("direction", mode == 'U' ? "upload" : "download");
+    dat.Set("total", total / (elapsed > 0 ? elapsed : 1e-9) / 1e6);
+    dat.Set("total_unit", "MB/s");
+    dat.Set("total_label", "All clients");
+    gxString items, vals;
+    for(i = 0; i < clients; i++) {
+      char name[32];
+      sprintf(name, "Client %lu", i);
+      dat.Add(items, name);
+      dat.Add(vals, parms[i].ok && parms[i].secs > 0 ?
+	      (double)(unsigned long long)bytes / parms[i].secs / 1e6 : 0.0);
+    }
+    dat.Set("items", items.c_str());
+    dat.Set("item_values", vals.c_str());
+    dat.Set("item_unit", "MB/s");
+    if(!dat.Write(datfile.c_str())) ok = 0;
+  }
   delete[] threads;
   delete[] parms;
   return ok == clients ? 0 : 1;
