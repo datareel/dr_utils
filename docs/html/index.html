@@ -73,13 +73,13 @@
 </tr>
 </tbody>
 </table>
-<h2 id="html-and-plain-text-versions">HTML and plain text versions</h2>
+<h2 id="html-version-and-folder-readmes">HTML version and folder READMEs</h2>
 <p><code>docs/html/</code> has the same pages as HTML with a side menu and a search box (press <code>/</code> to search). Open <code>docs/html/index.html</code> in a browser; it works straight from disk on Windows and Linux, with no web server and no network, or copy the folder to a web server. A search can be linked as <code>index.html?q=words</code>.</p>
-<p><code>docs/txt/</code> has the same pages as plain text, 78 columns wide, for a terminal (<code>less docs/txt/benchmarks.txt</code>), Notepad (<code>notepad docs\txt\benchmarks.txt</code>), <code>grep</code>/<code>findstr</code>, or a printer. <code>index.txt</code> lists them, and <code>hooks.txt</code> is the hook files reference.</p>
-<p>The markdown pages are the source. After editing them (or <code>hooks/README.md</code>), rebuild and commit the markdown, <code>docs/html</code> and <code>docs/txt</code> together:</p>
-<pre><code>python3 docs/make_html.py            # Linux (needs python3-markdown, or pip install markdown)
-py docs\make_html.py                 # Windows
-python3 docs/make_html.py --check    # exit 1 if docs/html or docs/txt is out of date
+<p>Each program folder also has a README.md with that program's part of these pages (<code>tools/portscan/README.md</code>, <code>benchmarks/cputest/README.md</code>, <code>benchmarks/plot/README.md</code>, <code>system_stats/sar_cpu_stats/README.md</code> ...), so the text docs are next to the source.</p>
+<p>The markdown pages here are the source. After editing them (or <code>hooks/README.md</code>), rebuild, and commit the pages, <code>docs/html</code> and the folder READMEs together:</p>
+<pre><code>python3 docs/make_docs.py            # Linux (needs python3-markdown, or pip install markdown)
+py docs\make_docs.py                 # Windows
+python3 docs/make_docs.py --check    # exit 1 if docs/html or a folder README is out of date
 </code></pre>
 <h2 id="conventions-in-these-pages">Conventions in these pages</h2>
 <ul>
@@ -95,7 +95,7 @@ python3 docs/make_html.py --check    # exit 1 if docs/html or docs/txt is out of
 <li>Wildcards such as <code>*.log</code> work on Windows in <code>cmd.exe</code> and PowerShell, because the programs link <code>setargv.obj</code> and expand them themselves.</li>
 <li>Exit status: each page lists it. On Linux read <code>$?</code>, in <code>cmd.exe</code> read <code>%ERRORLEVEL%</code>, and in PowerShell read <code>$LASTEXITCODE</code>.</li>
 </ul>
-<p class="foot">dr_utils 1.4 documentation, GNU LGPL 3 or later. Made from docs/README.md by docs/make_html.py.</p>
+<p class="foot">dr_utils 1.4 documentation, GNU LGPL 3 or later. Made from docs/README.md by docs/make_docs.py.</p>
 </div>
 </main>
 </div>

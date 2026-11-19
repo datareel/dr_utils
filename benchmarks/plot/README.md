@@ -1,0 +1,127 @@
+# dr_plot.py and dr_report.py
+
+Part of dr_utils 1.4. This file is made from [docs/plots-and-reports.md](../../docs/plots-and-reports.md) by docs/make_docs.py: edit that page, not this file. All the documentation: [docs/](../../docs/README.md), or the searchable HTML in `docs/html/index.html`.
+
+## Plot data files (`--datfile`)
+
+`cputest`, `disktest`, `memtest`, `flops`, `tcptest`, `udptest` and `mctest` take `--datfile=fname` and write their results as a small INI file: the settings, the main result (`total`), one value per thread, client, receiver or phase, and a `[HOSTINFO]` section (host, date, compiler). For example `cputest --num-threads=2 --datfile=cpu.dat`:
+
+```
+[BENCHMARK]
+name=cputest
+version=1.4
+threads=2
+buf_size=1e+07
+repeat=1
+total=40.8762
+total_unit=MB/s
+total_label=zlib compress + uncompress rate
+elapsed=0.244641
+items=Thread 0,Thread 1
+item_values=0.243874,0.229364
+item_unit=seconds
+
+[HOSTINFO]
+host=host1.example.com
+date=11/19/2026
+build=GCC
+title=CPU Speed Benchmark
+```
+
+`disktest --datfile` writes the older disk benchmark format (`[DISKBENCHMARK]`, `[PLOTINFO]`, `[HOSTINFO]`) with the time at every 10% of each phase.
+
+The files are the same on Windows and Linux, so results from both plot and report together.
+
+## dr_plot.py
+
+Plots `--datfile` files, `sar_cpu_stats --csv` output and `watch_mem_usage.sh` logs. It tells the kind from the contents. Needs Python 3 and matplotlib.
+
+```
+dr_plot.py [-h] [-o OUT] [--averages] [--cpu CPU] [--dpi DPI] files [files ...]
+```
+
+| Option | Meaning |
+|---|---|
+| `files` | one or more input files |
+| `-o OUT`, `--out OUT` | write this PNG file (without `-o` the plot opens in a window) |
+| `--averages` | disktest: milliseconds per key instead of seconds per 10% of the keys |
+| `--cpu CPU` | sar CSV: the CPU to plot (default `all`; needs `--csv --all-cpus` input) |
+| `--dpi DPI` | PNG resolution |
+
+| Input | Plot |
+|---|---|
+| one benchmark `--datfile` | a bar per thread, client, receiver or phase, the total in the title; UDP and multicast also show the loss per client |
+| several files of one benchmark | one bar per run (host, date, threads or clients) for the main result: compare machines, builds or thread counts |
+| `disktest --datfile` | insert, find, delete and reinsert times for every 10% of the keys; several files compare the phase totals |
+| `sar_cpu_stats --csv` | CPU use over time, stacked (user, nice, system, irq + soft, iowait, steal), one panel per host, gaps left empty and bad samples marked in red |
+| `watch_mem_usage.sh` log | used memory over time |
+
+Linux:
+
+```
+dr_plot.py cpu_host1.dat                                 # a window
+dr_plot.py -o cpu.png cpu_host1.dat
+dr_plot.py -o cpu_cmp.png cpu_host1.dat cpu_host2.dat    # compare runs
+dr_plot.py --averages -o disk_ms.png disk.dat
+sar_cpu_stats --csv sar_host1.txt > host1.csv && dr_plot.py -o host1_cpu.png host1.csv
+watch_mem_usage.sh -i 5 > mem.log & memtest --num-threads=8; kill %1; dr_plot.py -o mem.png mem.log
+```
+
+Windows (`py` launcher, from the dr_utils folder):
+
+```
+py benchmarks\plot\dr_plot.py -o cpu.png cpu_host1.dat
+py benchmarks\plot\dr_plot.py -o cpu_cmp.png results\cpu_*.dat
+py benchmarks\plot\dr_plot.py --averages --dpi 150 -o disk.png disk.dat
+```
+
+On a Linux host with no display, use `-o`.
+
+## dr_report.py
+
+Builds one HTML report from a folder (or a list) of result files: `--datfile` files, `sar_cpu_stats --csv` files and `watch_mem_usage.sh` logs. The charts are inside the HTML file, so the one file can be mailed, archived or printed.
+
+```
+dr_report.py [-h] -o OUT [--title TITLE] [--csv CSV] [--no-runs]
+             [--submit [ID]] [--now] [--drra DRRA] [--drra-config DRRA_CONFIG]
+             inputs [inputs ...]
+```
+
+| Option | Meaning |
+|---|---|
+| `inputs` | result files or folders |
+| `-o OUT`, `--out OUT` | the HTML file to write (required) |
+| `--title TITLE` | the report title (default "Benchmark report") |
+| `--csv CSV` | also write the summary table as CSV |
+| `--no-runs` | only the comparison charts, not one chart per run |
+| `--submit [ID]` | hand the report to the reporting agent, hook ID (default `dru_report`), see [Dashboard](../../docs/dashboard-hooks.md) |
+| `--now` | with `--submit`, the agent sends within seconds |
+| `--drra DRRA` | agent program (default `drra`, or `%ProgramFiles%\DataReel\ReportingAgent\drra_svc.exe` on Windows) |
+| `--drra-config DRRA_CONFIG` | agent settings file, `drra -c INI` (Linux, for tests) |
+
+The report has:
+
+- a summary table of every run (benchmark, host, date, compiler, settings, result);
+- a section for each benchmark, with a comparison chart when there are several runs and a chart for each run;
+- for each sar CSV, a table of averages and peaks per host (user, system, iowait, steal, lowest idle), the count of bad samples, and the CPU chart;
+- the memory logs.
+
+Files in a folder that are not results are listed as skipped.
+
+Linux:
+
+```
+mkdir results
+cputest --num-threads=8 --datfile=results/cpu.dat
+disktest --file=/data/testfile.btx --datfile=results/disk.dat
+sar_cpu_stats --csv sar_host1.txt > results/host1_sar.csv
+dr_report.py -o host1_report.html --title "host1 sizing" --csv host1_summary.csv results
+dr_report.py -o compare.html --no-runs host1_results host2_results
+```
+
+Windows:
+
+```
+py benchmarks\plot\dr_report.py -o report.html --title "file server sizing" results
+py benchmarks\plot\dr_report.py -o compare.html --no-runs --csv compare.csv \\fileserver.example.com\bench\host1 \\fileserver.example.com\bench\host2
+```

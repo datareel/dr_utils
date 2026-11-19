@@ -13,18 +13,18 @@ dr_utils is a set of command line file tools, network tools, system benchmarks a
 | [Dashboard: reporting agent hooks](dashboard-hooks.md) | `--drsm`, `--submit`, the DataReel Reporting Agents for Linux and Windows, DRSM setup, the daily sar job |
 | [Quick reference](quick-reference.md) | Every program and option on one page, with exit status |
 
-## HTML and plain text versions
+## HTML version and folder READMEs
 
 `docs/html/` has the same pages as HTML with a side menu and a search box (press `/` to search). Open `docs/html/index.html` in a browser; it works straight from disk on Windows and Linux, with no web server and no network, or copy the folder to a web server. A search can be linked as `index.html?q=words`.
 
-`docs/txt/` has the same pages as plain text, 78 columns wide, for a terminal (`less docs/txt/benchmarks.txt`), Notepad (`notepad docs\txt\benchmarks.txt`), `grep`/`findstr`, or a printer. `index.txt` lists them, and `hooks.txt` is the hook files reference.
+Each program folder also has a README.md with that program's part of these pages (`tools/portscan/README.md`, `benchmarks/cputest/README.md`, `benchmarks/plot/README.md`, `system_stats/sar_cpu_stats/README.md` ...), so the text docs are next to the source.
 
-The markdown pages are the source. After editing them (or `hooks/README.md`), rebuild and commit the markdown, `docs/html` and `docs/txt` together:
+The markdown pages here are the source. After editing them (or `hooks/README.md`), rebuild, and commit the pages, `docs/html` and the folder READMEs together:
 
 ```
-python3 docs/make_html.py            # Linux (needs python3-markdown, or pip install markdown)
-py docs\make_html.py                 # Windows
-python3 docs/make_html.py --check    # exit 1 if docs/html or docs/txt is out of date
+python3 docs/make_docs.py            # Linux (needs python3-markdown, or pip install markdown)
+py docs\make_docs.py                 # Windows
+python3 docs/make_docs.py --check    # exit 1 if docs/html or a folder README is out of date
 ```
 
 ## Conventions in these pages

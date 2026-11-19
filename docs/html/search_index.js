@@ -1,4 +1,4 @@
-// Made by docs/make_html.py
+// Made by docs/make_docs.py
 var DRU_INDEX = [
 {
 "h": "Overview",
@@ -13,10 +13,10 @@ var DRU_INDEX = [
 "t": "dr_utils is a set of command line file tools, network tools, system benchmarks and a sar report reader for Windows and Linux, built on the DataReel C++ library 6.4.1. These pages cover every program: what it does, every option, and command lines for both systems. Page What it covers Building and installing DataReel 6.4.1, build.sh and build.cmd , zlib, putting the programs on the PATH, privileges, the test suites File tools file_hours , file_purge , filetimes Network tools internet-test , pingscan , dnsscan , portscan , netpscan , arpscan , getmac Benchmarks cputest , disktest , memtest , flops , tcpserv / tcptest , udpserv / udptest , mcserv / mctest sar CPU statistics sar_cpu_stats : averages, peaks, steal and iowait spikes, gaps, CSV Plots, reports and watch scripts --datfile files, dr_plot.py , dr_report.py , watch_system.sh , watch_mem.sh , watch_mem_usage.sh Dashboard: reporting agent hooks --drsm , --submit , the DataReel Reporting Agents for Linux and Windows, DRSM setup, the daily sar job Quick reference Every program and option on one page, with exit status"
 },
 {
-"h": "HTML and plain text versions",
+"h": "HTML version and folder READMEs",
 "p": "Overview",
-"u": "index.html#html-and-plain-text-versions",
-"t": "docs/html/ has the same pages as HTML with a side menu and a search box (press / to search). Open docs/html/index.html in a browser; it works straight from disk on Windows and Linux, with no web server and no network, or copy the folder to a web server. A search can be linked as index.html?q=words . docs/txt/ has the same pages as plain text, 78 columns wide, for a terminal ( less docs/txt/benchmarks.txt ), Notepad ( notepad docs\\txt\\benchmarks.txt ), grep / findstr , or a printer. index.txt lists them, and hooks.txt is the hook files reference. The markdown pages are the source. After editing them (or hooks/README.md ), rebuild and commit the markdown, docs/html and docs/txt together: python3 docs/make_html.py # Linux (needs python3-markdown, or pip install markdown) py docs\\make_html.py # Windows python3 docs/make_html.py --check # exit 1 if docs/html or docs/txt is out of date"
+"u": "index.html#html-version-and-folder-readmes",
+"t": "docs/html/ has the same pages as HTML with a side menu and a search box (press / to search). Open docs/html/index.html in a browser; it works straight from disk on Windows and Linux, with no web server and no network, or copy the folder to a web server. A search can be linked as index.html?q=words . Each program folder also has a README.md with that program's part of these pages ( tools/portscan/README.md , benchmarks/cputest/README.md , benchmarks/plot/README.md , system_stats/sar_cpu_stats/README.md ...), so the text docs are next to the source. The markdown pages here are the source. After editing them (or hooks/README.md ), rebuild, and commit the pages, docs/html and the folder READMEs together: python3 docs/make_docs.py # Linux (needs python3-markdown, or pip install markdown) py docs\\make_docs.py # Windows python3 docs/make_docs.py --check # exit 1 if docs/html or a folder README is out of date"
 },
 {
 "h": "Conventions in these pages",

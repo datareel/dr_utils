@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -----------------------------------------------------------
-# Python Script: make_html.py
+# Python Script: make_docs.py
 # Produced By: DataReel Software Development Team
 # File Creation Date: 11/19/2026
 # Date Last Modified: 11/19/2026
@@ -19,22 +19,24 @@
 # License along with this library. If not, see
 # <https://www.gnu.org/licenses/>.
 #
-# Builds the HTML documentation in docs/html/ and the plain text
-# documentation in docs/txt/ from the markdown pages in docs/ and
-# hooks/README.md. HTML: one page each, a side menu, and a search box
-# that works offline (the search index is a script file, so the pages
-# also work opened straight from disk, file://). Text: one .txt file
-# each, 78 columns, for a terminal, less, Notepad or a printer.
+# Builds the documentation from the markdown pages in docs/ and
+# hooks/README.md:
+# - docs/html/: one HTML page each, a side menu, and a search box that
+#   works offline (the search index is a script file, so the pages also
+#   work opened straight from disk, file://);
+# - a README.md in each program folder (tools/<name>, benchmarks/<name>,
+#   benchmarks/plot, benchmarks/scripts, system_stats/sar_cpu_stats),
+#   with that program's section of the docs.
 #
-#   python3 docs/make_html.py            write docs/html/ and docs/txt/
-#   python3 docs/make_html.py --check    exit 1 if either is out of date
+#   python3 docs/make_docs.py            write docs/html/ and the folder READMEs
+#   python3 docs/make_docs.py --check    exit 1 if any of them is out of date
 #
 # Needs Python 3 with the markdown package (python3-markdown, or
 # pip install markdown). Edit the markdown, then run this script and
 # commit both.
 #
 # Changes:
-# 11/19/2026: First version. Plain text pages in docs/txt/.
+# 11/19/2026: First version.
 # -----------------------------------------------------------
 
 import argparse
@@ -182,7 +184,7 @@ TEMPLATE = """<!doctype html>
 <div id="results"></div>
 <div id="content">
 {body}
-<p class="foot">dr_utils {version} documentation, GNU LGPL 3 or later. Made from {source} by docs/make_html.py.</p>
+<p class="foot">dr_utils {version} documentation, GNU LGPL 3 or later. Made from {source} by docs/make_docs.py.</p>
 </div>
 </main>
 </div>
@@ -237,130 +239,103 @@ def sections(body_html, page_title, page_url):
     return index
 
 
-# ---- Plain text pages -------------------------------------------------
-WIDTH = 78
+# ---- README.md in each program folder ---------------------------------
+# (folder, title, [(docs page, "## heading" of the section to copy)])
+FOLDERS = [
+    ('tools/file_hours', 'file_hours', [('file-tools.md', 'file_hours')]),
+    ('tools/file_purge', 'file_purge', [('file-tools.md', 'file_purge')]),
+    ('tools/filetimes', 'filetimes', [('file-tools.md', 'filetimes')]),
+    ('tools/internet-test', 'internet-test',
+     [('network-tools.md', 'internet-test')]),
+    ('tools/pingscan', 'pingscan', [('network-tools.md', 'pingscan')]),
+    ('tools/dnsscan', 'dnsscan', [('network-tools.md', 'dnsscan')]),
+    ('tools/portscan', 'portscan', [('network-tools.md', 'portscan')]),
+    ('tools/netpscan', 'netpscan', [('network-tools.md', 'netpscan')]),
+    ('tools/arpscan', 'arpscan', [('network-tools.md', 'arpscan')]),
+    ('tools/getmac', 'getmac', [('network-tools.md', 'getmac')]),
+    ('benchmarks/cputest', 'cputest', [('benchmarks.md', 'cputest')]),
+    ('benchmarks/flops', 'flops', [('benchmarks.md', 'flops')]),
+    ('benchmarks/memtest', 'memtest', [('benchmarks.md', 'memtest')]),
+    ('benchmarks/disktest', 'disktest', [('benchmarks.md', 'disktest')]),
+    ('benchmarks/tcpserv', 'tcpserv', [('benchmarks.md', 'tcpserv and tcptest')]),
+    ('benchmarks/tcptest', 'tcptest', [('benchmarks.md', 'tcpserv and tcptest')]),
+    ('benchmarks/udpserv', 'udpserv', [('benchmarks.md', 'udpserv and udptest')]),
+    ('benchmarks/udptest', 'udptest', [('benchmarks.md', 'udpserv and udptest')]),
+    ('benchmarks/mcserv', 'mcserv', [('benchmarks.md', 'mcserv and mctest')]),
+    ('benchmarks/mctest', 'mctest', [('benchmarks.md', 'mcserv and mctest')]),
+    ('benchmarks/plot', 'dr_plot.py and dr_report.py',
+     [('plots-and-reports.md', 'Plot data files (`--datfile`)'),
+      ('plots-and-reports.md', 'dr_plot.py'),
+      ('plots-and-reports.md', 'dr_report.py')]),
+    ('benchmarks/scripts', 'Watch scripts',
+     [('plots-and-reports.md', 'Watch scripts (Linux)')]),
+    ('system_stats/sar_cpu_stats', 'sar_cpu_stats',
+     [('sar-cpu-stats.md', None)]),
+]
+
+# Notes that a copied section needs from the top of its page
+PAGE_NOTES = {
+    'network-tools.md': 'Ranges (`192.0.2`, `192.0.2.7`, `192.0.2.10-40`), '
+    'services files and the privileges ping needs are on the '
+    '[Network tools](NETWORK) page.',
+    'benchmarks.md': 'Sizes take decimal suffixes (`1k` = 1000, `1m`, `1g`). '
+    'The dashboard options (`--drsm`, `--submit`, `--now`, `--drra`, '
+    '`--drra-config`) are on the [Dashboard](DASH) page.',
+}
 
 
-def inline_text(s):
-    # Markdown inline markup to plain text
-    s = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', link_text, s)
-    s = s.replace('\\|', '|')
-    s = re.sub(r'\*\*([^*]+)\*\*', r'\1', s)
-    s = re.sub(r'`([^`]+)`', r'\1', s)
-    return s
+def md_section(text, heading):
+    # The "## heading" section of a page, without the heading line
+    if heading is None:
+        return re.sub(r'\A# [^\n]*\n', '', text)
+    m = re.search(r'^## ' + re.escape(heading) + r'\n(.*?)(?=^## |\Z)', text,
+                  re.M | re.S)
+    if not m:
+        raise SystemExit('make_docs.py: no "## %s" section' % heading)
+    return m.group(1)
 
 
-def link_text(m):
-    label, target = m.group(1), m.group(2)
-    if re.match(r'[a-z]+:', target):
-        return '%s <%s>' % (label, target)
-    page = re.sub(r'#.*$', '', target)
-    for s, o, _ in PAGES:
-        if page and o.replace('.html', '') == os.path.basename(page).replace('.md', ''):
-            return '%s [%s]' % (label, o.replace('.html', '.txt'))
-        if page.endswith('hooks/README.md'):
-            return '%s [hooks.txt]' % label
-    if not page:
-        return label
-    return '%s (%s)' % (label, page)
+def relink(text, folder):
+    # Links in docs/ pages point next to them: make them work from folder
+    def repl(m):
+        target, anchor = m.group(1), m.group(2) or ''
+        if re.match(r'[a-z]+:', target):
+            return m.group(0)
+        full = os.path.normpath(os.path.join(HERE, target))
+        rel = os.path.relpath(full, os.path.join(TOP, folder))
+        return '](' + rel.replace(os.sep, '/') + anchor + ')'
+    return re.sub(r'\]\(([^)#\s]+\.md)(#[^)\s]*)?\)', repl, text)
 
 
-def wrap(text, first='', rest=''):
-    import textwrap
-    return textwrap.fill(text, WIDTH, initial_indent=first,
-                         subsequent_indent=rest, break_long_words=False,
-                         break_on_hyphens=False)
-
-
-def table_text(rows):
-    rows = [[inline_text(c.strip()) for c in r] for r in rows]
-    head, body = rows[0], rows[1:]
-    n = len(head)
-    widths = [max(len(r[i]) if i < len(r) else 0 for r in rows) for i in range(n)]
-    if sum(widths) + 2 * (n - 1) <= WIDTH:
-        line = lambda r: '  '.join((r[i] if i < len(r) else '').ljust(widths[i])
-                                   for i in range(n)).rstrip()
-        out = [line(head), '  '.join('-' * w for w in widths)]
-        out += [line(r) for r in body]
-        return '\n'.join(out)
-    # Too wide: the first column as a label, the others below it
-    out = []
-    for r in body:
-        out.append(wrap(r[0]))
-        for i in range(1, n):
-            if i < len(r) and r[i]:
-                label = head[i] + ': ' if n > 2 else ''
-                out.append(wrap(label + r[i], '    ', '    '))
-        out.append('')
-    return '\n'.join(out).rstrip()
-
-
-def md_to_text(md, title):
-    lines = md.split('\n')
-    out, i = [], 0
-    para = []
-
-    def flush():
-        if para:
-            out.append(wrap(inline_text(' '.join(para))))
-            out.append('')
-            para.clear()
-    while i < len(lines):
-        ln = lines[i]
-        if ln.startswith('```'):
-            flush()
-            i += 1
-            while i < len(lines) and not lines[i].startswith('```'):
-                out.append(('    ' + lines[i]).rstrip())
-                i += 1
-            out.append('')
-        elif re.match(r'#{1,6} ', ln):
-            flush()
-            level = len(ln) - len(ln.lstrip('#'))
-            h = inline_text(ln[level:].strip())
-            if level == 1:
-                out += ['=' * len(h), h, '=' * len(h), '']
-            elif level == 2:
-                out += ['', h, '-' * len(h), '']
+def folder_readmes(version):
+    files = {}
+    for folder, title, parts in FOLDERS:
+        body = []
+        for page, heading in parts:
+            text = open(os.path.join(HERE, page), encoding='utf-8').read()
+            sec = md_section(text, heading).strip('\n')
+            if len(parts) > 1:
+                sec = '## ' + heading + '\n\n' + sec
             else:
-                out += [h, '~' * len(h), '']
-        elif ln.startswith('|'):
-            flush()
-            rows = []
-            while i < len(lines) and lines[i].startswith('|'):
-                cells = re.split(r'(?<!\\)\|', lines[i].strip()[1:-1])
-                if not all(re.match(r'^\s*:?-+:?\s*$', c) for c in cells):
-                    rows.append(cells)
-                i += 1
-            out += [table_text(rows), '']
-            continue
-        elif re.match(r'\s*([-*]|\d+\.) ', ln):
-            flush()
-            m = re.match(r'(\s*)([-*]|\d+\.) (.*)', ln)
-            ind, mark, text = len(m.group(1)), m.group(2), m.group(3)
-            i += 1
-            while (i < len(lines) and lines[i].strip() and
-                   not re.match(r'\s*([-*]|\d+\.) ', lines[i]) and
-                   not lines[i].lstrip().startswith('```') and
-                   lines[i].startswith(' ')):
-                text += ' ' + lines[i].strip()
-                i += 1
-            bullet = '-' if mark in '-*' else mark
-            pad = ' ' * ind
-            out.append(wrap(inline_text(text), pad + bullet + ' ',
-                            pad + ' ' * (len(bullet) + 1)))
-            if i < len(lines) and not lines[i].strip():
-                out.append('')
-            continue
-        elif not ln.strip():
-            flush()
-        else:
-            para.append(ln.strip())
-        i += 1
-    flush()
-    text = '\n'.join(out)
-    text = re.sub(r'\n{3,}', '\n\n', text).strip() + '\n'
-    return text
+                sec = re.sub(r'^###', '##', sec, flags=re.M)
+            body.append(sec)
+        notes = []
+        for page in sorted({pg for pg, _ in parts}):
+            if page in PAGE_NOTES:
+                notes.append(PAGE_NOTES[page].replace('(NETWORK)', '(network-tools.md)')
+                             .replace('(DASH)', '(dashboard-hooks.md)'))
+        page = parts[0][0]
+        anchor = '#' + slugify(parts[0][1], '-') if parts[0][1] and len(parts) == 1 else ''
+        head = ('# %s\n\n'
+                'Part of dr_utils %s. This file is made from [docs/%s](%s%s) by '
+                'docs/make_docs.py: edit that page, not this file. All the '
+                'documentation: [docs/](README.md), or the searchable HTML in '
+                '`docs/html/index.html`.\n' %
+                (title, version, page, page, anchor))
+        out = head + ''.join('\n' + n + '\n' for n in notes) + '\n' + \
+            '\n\n'.join(body) + '\n'
+        files[os.path.join('..', folder, 'README.md')] = relink(out, folder)
+    return files
 
 
 def build():
@@ -379,14 +354,11 @@ def build():
             '<li><a href="%s"%s>%s</a></li>' %
             (o, ' class="cur"' if o == out else '', html.escape(t))
             for _, o, t in PAGES)
-        txt = md_to_text(open(os.path.join(TOP, src), encoding='utf-8').read(), title)
-        files['txt/' + out.replace('.html', '.txt')] = (
-            txt + '\n(dr_utils %s documentation, made from %s by docs/make_html.py)\n'
-            % (version, src))
         files['html/' + out] = TEMPLATE.format(title=html.escape(title), version=version,
                                      menu=menu, body=body, source=src)
         index.extend(sections(body, title, out))
-    files['html/search_index.js'] = ('// Made by docs/make_html.py\nvar DRU_INDEX = ' +
+    files.update(folder_readmes(version))
+    files['html/search_index.js'] = ('// Made by docs/make_docs.py\nvar DRU_INDEX = ' +
                                 json.dumps(index, indent=0, ensure_ascii=False) +
                                 ';\n')
     return files
@@ -395,7 +367,7 @@ def build():
 def main():
     ap = argparse.ArgumentParser(description='Build docs/html from the markdown docs')
     ap.add_argument('--check', action='store_true',
-                    help='exit 1 if docs/html or docs/txt is out of date, change nothing')
+                    help='exit 1 if docs/html or a folder README is out of date, change nothing')
     args = ap.parse_args()
     files = build()
     stale = []
@@ -409,7 +381,7 @@ def main():
             stale.append(name)
     if args.check:
         for name in stale:
-            print('out of date: docs/' + name)
+            print('out of date: ' + os.path.relpath(os.path.join(HERE, name), TOP))
         return 1 if stale else 0
     for name in stale:
         os.makedirs(os.path.dirname(os.path.join(HERE, name)), exist_ok=True)
@@ -417,7 +389,7 @@ def main():
         with open(tmp, 'w', encoding='utf-8', newline='\n') as f:
             f.write(files[name])
         os.replace(tmp, os.path.join(HERE, name))
-    print('docs/html, docs/txt: %d file(s) written, %d up to date' %
+    print('docs/html and folder READMEs: %d file(s) written, %d up to date' %
           (len(stale), len(files) - len(stale)))
     return 0
 
