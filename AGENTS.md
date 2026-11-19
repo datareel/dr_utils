@@ -5,7 +5,7 @@ dr_utils is a set of small command line file and network tools and system benchm
 ## Rules
 
 - License: GNU LGPL 3 or later. Every source file has the DataReel LGPL 3 header; new files get the same header. Credit the original program in the header's Changes.
-- No credentials, real host names, internal addresses or email addresses in code, tests or docs. Examples use 192.168.1.x, 192.0.2.x and example.com.
+- No names, email addresses, credentials, host names or real IP addresses in code, comments, tests or docs. Credit older code as "based on work from the <year> <program>". Examples use the documentation addresses 192.0.2.x and example.com host names.
 - The tests touch only 127.0.0.1, a local HTTP server and (getmac/arpscan) one host already in the machine's ARP table. Do not add tests that scan other hosts or networks.
 - The network tools scan one /24 at most. Keep that limit. The multicast sender keeps TTL 1 and a rate limit by default.
 - Benchmark tests use small sizes and 127.0.0.1 only (multicast with -i127.0.0.1).

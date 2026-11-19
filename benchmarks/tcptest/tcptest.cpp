@@ -169,7 +169,7 @@ void HelpMessage()
   cout << "-s = Specify the number of bytes per client, ranges -s1K to -s100G"
        << " (default 150M)" << "\n";
   cout << "\n";
-  cout << "Example: " << ProgramName << " -n4 -b65536 -s1G 192.168.1.10"
+  cout << "Example: " << ProgramName << " -n4 -b65536 -s1G 192.0.2.10"
        << "\n";
   cout << "Exit status: 0 if every client finished, 1 otherwise." << "\n";
   cout << "\n" << flush;

@@ -62,7 +62,7 @@ void HelpMessage(const char *pname)
   cout << "Usage: " << pname << " hostname [ethernet_device]" << "\n";
   cout << "ethernet_device = only an ARP entry on this interface (Linux)"
        << "\n";
-  cout << "Example: " << pname << " 192.168.1.12" << "\n";
+  cout << "Example: " << pname << " 192.0.2.12" << "\n";
   cout << "Example: " << pname << " printer.example.com eth0" << "\n";
   cout << "\n";
   cout << "Exit status: 0 with the MAC address, 1 if there is no ARP entry"

@@ -62,8 +62,8 @@ void HelpMessage(const char *pname)
   cout << "-t ms = ping timeout in milliseconds (default 1000)" << "\n";
   cout << "-u    = list only the hosts that answer" << "\n";
   cout << "\n";
-  cout << "Example: " << pname << " 192.168.1" << "\n";
-  cout << "Example: " << pname << " -u -t 300 192.168.1.10-40" << "\n";
+  cout << "Example: " << pname << " 192.0.2" << "\n";
+  cout << "Example: " << pname << " -u -t 300 192.0.2.10-40" << "\n";
   cout << "\n";
   cout << "Exit status: 0 if any host answered, 1 if none did, 2 on an"
        << "\n" << "error. Scan only networks you own or are allowed to scan."

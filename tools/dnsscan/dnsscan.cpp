@@ -72,7 +72,7 @@ void HelpMessage(const char *pname)
        << "resolves to" << "\n";
   cout << "  ping    = up (ms) or down" << "\n";
   cout << "\n";
-  cout << "Example: " << pname << " -f 192.168.1" << "\n";
+  cout << "Example: " << pname << " -f 192.0.2" << "\n";
   cout << "Exit status: 0 if any address has a name, 1 if none, 2 on an"
        << " error." << "\n";
   cout << "\n" << flush;

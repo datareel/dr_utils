@@ -74,10 +74,10 @@ void HelpMessage(const char *pname)
        << "\n";
   cout << "          -a      = list hosts with no MAC address too" << "\n";
   cout << "\n";
-  cout << "Example 1: " << pname << " 192.168.1" << "\n";
-  cout << "Example 2: " << pname << " -v maccodes.txt -o lan.txt 192.168.1"
+  cout << "Example 1: " << pname << " 192.0.2" << "\n";
+  cout << "Example 2: " << pname << " -v maccodes.txt -o lan.txt 192.0.2"
        << "\n";
-  cout << "Example 3: " << pname << " 192.168.1.7" << "\n";
+  cout << "Example 3: " << pname << " 192.0.2.7" << "\n";
   cout << "\n";
   cout << "Output, tab separated: address name MAC [vendor]" << "\n";
   cout << "Only hosts on a directly attached network have a MAC address."
