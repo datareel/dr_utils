@@ -26,6 +26,8 @@ Output, one line:
 | `NOT` | the file is newer |
 | `ERR - <reason>` | the file is missing, is not a file, or has a bad time stamp |
 
+Dashboard: `--drsm=fname`, `--submit[=ID]` (default `dru_file_hours`), `--now`, `--drra=path` send the result to DRSM through the reporting agent, see [Dashboard](dashboard-hooks.md).
+
 Exit status without `-s`: 0 for YES or NOT, 1 for ERR.
 
 Linux:
@@ -85,6 +87,8 @@ Each file gets one line:
 | `ERR - name <reason>` | missing, not a file, bad time stamp |
 | `LST - name (n) hours (n) days` | the `-l` listing |
 | `DRY - name would be purged ...` | the `-n` dry run |
+
+Dashboard: `--drsm=fname`, `--submit[=ID]` (default `dru_file_purge`), `--now`, `--drra=path` send the result to DRSM through the reporting agent, see [Dashboard](dashboard-hooks.md).
 
 Exit status: 0 when the files were checked (look at the lines for what happened to each), 1 on a usage error (bad switch, no file name, missing `-m` folder).
 
@@ -154,6 +158,8 @@ File change time (ctime): 11/19/2026  01:11 PM
 File change GMT  (ctime): Thu, 19 Nov 2026 18:11:41 GMT
 File is 0 second(s) old
 ```
+
+Dashboard: `--drsm=fname`, `--submit[=ID]` (default `dru_filetimes`), `--now`, `--drra=path` send the result to DRSM through the reporting agent, see [Dashboard](dashboard-hooks.md).
 
 Exit status 1 if any file cannot be read, or on a usage error.
 

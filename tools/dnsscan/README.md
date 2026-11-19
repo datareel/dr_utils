@@ -24,6 +24,8 @@ Output is one tab-separated line per address: address, name, then the `-f` and `
 192.0.2.11	old-host.example.com	fwd_mismatch 192.0.2.99	down
 ```
 
+Dashboard: `--drsm=fname`, `--submit[=ID]` (default `dru_dnsscan`), `--now`, `--drra=path` send the result to DRSM through the reporting agent, see [Dashboard](../../docs/dashboard-hooks.md).
+
 Exit status: 0 if any address has a name, 1 if none, 2 on an error.
 
 Linux:

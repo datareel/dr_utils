@@ -6,7 +6,7 @@
 // C++ Compiler Used: MSVC, GCC
 // Produced By: DataReel Software Development Team
 // File Creation Date: 1999
-// Date Last Modified: 11/18/2026
+// Date Last Modified: 11/19/2026
 // Copyright (c) 2001-2026 DataReel Software Development
 // ----------------------------------------------------------- //
 // ------------- Program Description and Details ------------- //
@@ -36,6 +36,8 @@ round trip time per reply, -u (only hosts that answer) and a summary
 line. No root on Linux when net.ipv4.ping_group_range allows ICMP
 datagram sockets; no administrator on Windows (IcmpSendEcho). One
 failed ping no longer stops the sweep.
+11/19/2026: --drsm and --submit: results for the DRSM dashboard through
+the DataReel Reporting Agents (hooks/README.md).
 */
 // ----------------------------------------------------------- //
 #include "gxdlcode.h"
@@ -48,6 +50,7 @@ using namespace std;
 #include <string.h>
 #include "drnet.h"
 #include "drutil.h"
+#include "drhook.h"
 
 const char *ProgramName = "pingscan";
 const char *VersionString = DR_UTILS_VERSION;
@@ -69,9 +72,21 @@ void HelpMessage(const char *pname)
        << "\n" << "error. Scan only networks you own or are allowed to scan."
        << "\n";
   cout << "\n" << flush;
+  drhook_usage(ProgramName);
 }
 
-int main(int argc, char **argv)
+// Dashboard output (--drsm, --submit, see common/drhook.h): set
+// hook_ready once the arguments are good, so a usage error sends
+// nothing
+drhookOptions hook("pingscan");
+drhookTee hook_tee;
+drhookLines hook_summary;
+drhookLines hook_table;
+int hook_ready = 0;
+gxString hook_range;
+int hook_tried = 0, hook_up = 0;
+
+int RunTool(int argc, char **argv)
 {
   int timeout_ms = 1000;
   int only_up = 0;
@@ -115,6 +130,11 @@ int main(int argc, char **argv)
     return 2;
   }
 
+  hook_ready = 1;
+  hook_range = range;
+  hook_table.Columns();
+  hook_table.Cell("Address"); hook_table.Cell("Name");
+  hook_table.Cell("Status"); hook_table.Cell("Reply ms");
   cout << "Exploring " << base.c_str() << "." << first;
   if(last != first) cout << "-" << last;
   cout << "\n" << flush;
@@ -133,6 +153,18 @@ int main(int argc, char **argv)
     gxString name;
     int has_name = drnet_reverse(ip.c_str(), name);
     if(rv == DRNET_REPLY) up++;
+    hook_tried = tried;
+    hook_up = up;
+    if(!only_up || rv == DRNET_REPLY) {
+      char ms[32];
+      sprintf(ms, "%.1f", rtt);
+      hook_table.Row();
+      hook_table.Cell(ip.c_str());
+      hook_table.Cell(has_name ? name.c_str() : "");
+      hook_table.Cell(rv == DRNET_REPLY ? "up" :
+		      (has_name ? "not responding" : "no host"));
+      hook_table.Cell(rv == DRNET_REPLY ? ms : "");
+    }
     if(only_up && rv != DRNET_REPLY) continue;
 
     cout << "\n" << "Contacting host: " << ip.c_str() << "\n";
@@ -154,6 +186,33 @@ int main(int argc, char **argv)
   cout << "\n" << up << " of " << tried << " hosts answered" << "\n"
        << flush;
   return up ? 0 : 1;
+}
+// The scan as DRSM lines: hosts up and down, a row per host
+int HookFinish(int rc)
+{
+  gxString info;
+  info << "pingscan " << hook_range << ": " << hook_up << " of "
+       << hook_tried << " hosts answered";
+  hook_summary.Info(info.c_str());
+  drhook_head(hook_summary, ProgramName, VersionString);
+  hook_summary.Value("range", hook_range.c_str());
+  hook_summary.Value("tried", (double)hook_tried);
+  hook_summary.Value("up", (double)hook_up);
+  hook_summary.Value("down", (double)(hook_tried - hook_up));
+  return drhook_tool_finish(hook, hook_tee, ProgramName, rc == 2,
+			    hook_summary, hook_table);
+}
+
+int main(int argc, char **argv)
+{
+  argc = drhook_args(hook, argc, argv);
+  if(!hook.Check()) return 2;
+  if(hook.Wanted()) hook_tee.Start();
+  int rc = RunTool(argc, argv);
+  hook_tee.Stop();
+  if(!hook.Wanted() || !hook_ready) return rc;
+  if(!HookFinish(rc)) return 2;
+  return rc;
 }
 // ----------------------------------------------------------- //
 // ------------------------------- //

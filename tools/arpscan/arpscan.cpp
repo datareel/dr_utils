@@ -6,7 +6,7 @@
 // C++ Compiler Used: MSVC, GCC
 // Produced By: DataReel Software Development Team
 // File Creation Date: 1999
-// Date Last Modified: 11/18/2026
+// Date Last Modified: 11/19/2026
 // Copyright (c) 2001-2026 DataReel Software Development
 // ----------------------------------------------------------- //
 // ------------- Program Description and Details ------------- //
@@ -40,6 +40,8 @@ arpscan program. The MAC address comes from /proc/net/arp on Linux
 SendARP on Windows (the 1999 version ran "arp -a" into a file in
 the current folder). The switches replace the positional vendor and
 output files; the 2008 version ignored the Linux output file name.
+11/19/2026: --drsm and --submit: results for the DRSM dashboard through
+the DataReel Reporting Agents (hooks/README.md).
 */
 // ----------------------------------------------------------- //
 #include "gxdlcode.h"
@@ -54,6 +56,7 @@ using namespace std;
 #include "gxmac48.h"
 #include "drnet.h"
 #include "drutil.h"
+#include "drhook.h"
 
 const char *ProgramName = "arpscan";
 const char *VersionString = DR_UTILS_VERSION;
@@ -85,9 +88,21 @@ void HelpMessage(const char *pname)
   cout << "Exit status: 0 if any MAC address was found, 1 if none, 2 on an "
        << "error." << "\n";
   cout << "\n" << flush;
+  drhook_usage(ProgramName);
 }
 
-int main(int argc, char **argv)
+// Dashboard output (--drsm, --submit, see common/drhook.h): set
+// hook_ready once the arguments are good, so a usage error sends
+// nothing
+drhookOptions hook("arpscan");
+drhookTee hook_tee;
+drhookLines hook_summary;
+drhookLines hook_table;
+int hook_ready = 0;
+gxString hook_range;
+int hook_tried = 0, hook_found = 0;
+
+int RunTool(int argc, char **argv)
 {
   const char *dev = 0, *vendors = 0, *ofname = 0, *range = 0;
   int timeout_ms = 1000;
@@ -143,6 +158,11 @@ int main(int argc, char **argv)
     return 2;
   }
 
+  hook_ready = 1;
+  hook_range = range;
+  hook_table.Columns();
+  hook_table.Cell("Address"); hook_table.Cell("Name");
+  hook_table.Cell("MAC address"); hook_table.Cell("Vendor");
   int found = 0;
   for(int h = first; h <= last; h++) {
     gxString ip;
@@ -153,6 +173,7 @@ int main(int argc, char **argv)
       cout << ip.c_str() << ": " << err.c_str() << "\n" << flush;
       return 2;
     }
+    hook_tried++;
     // A host that drops ICMP can still answer ARP, so look it up even
     // without a ping reply
     gxString mac;
@@ -163,7 +184,7 @@ int main(int argc, char **argv)
     gxString name;
     if(!drnet_reverse(ip.c_str(), name)) name = "no_DNS_entry";
 
-    gxString out;
+    gxString out, hvendor;
     out << clear << ip << "\t" << name << "\t";
     if(has_mac) {
       found++;
@@ -174,6 +195,7 @@ int main(int argc, char **argv)
 	vname[0] = comment[0] = 0;
 	if(FindVendor(vendors, m, vname, comment) && vname[0]) {
 	  out << "\t" << vname;
+	  hvendor = vname;
 	}
       }
     }
@@ -181,10 +203,42 @@ int main(int argc, char **argv)
       out << "no_ARP_entry";
     }
     cout << out.c_str() << "\n" << flush;
+    hook_found = found;
+    hook_table.Row();
+    hook_table.Cell(ip.c_str());
+    hook_table.Cell(name == "no_DNS_entry" ? "" : name.c_str());
+    hook_table.Cell(has_mac ? mac.c_str() : "no ARP entry");
+    hook_table.Cell(hvendor.c_str());
     if(ofname) outfile << out.c_str() << "\n" << flush;
   }
   if(ofname) outfile.close();
   return found ? 0 : 1;
+}
+// The scan as DRSM lines: a row per host with its MAC address
+int HookFinish(int rc)
+{
+  gxString info;
+  info << "arpscan " << hook_range << ": " << hook_found << " of "
+       << hook_tried << " addresses have a MAC address";
+  hook_summary.Info(info.c_str());
+  drhook_head(hook_summary, ProgramName, VersionString);
+  hook_summary.Value("range", hook_range.c_str());
+  hook_summary.Value("tried", (double)hook_tried);
+  hook_summary.Value("found", (double)hook_found);
+  return drhook_tool_finish(hook, hook_tee, ProgramName, rc == 2,
+			    hook_summary, hook_table);
+}
+
+int main(int argc, char **argv)
+{
+  argc = drhook_args(hook, argc, argv);
+  if(!hook.Check()) return 2;
+  if(hook.Wanted()) hook_tee.Start();
+  int rc = RunTool(argc, argv);
+  hook_tee.Stop();
+  if(!hook.Wanted() || !hook_ready) return rc;
+  if(!HookFinish(rc)) return 2;
+  return rc;
 }
 // ----------------------------------------------------------- //
 // ------------------------------- //

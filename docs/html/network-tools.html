@@ -96,6 +96,7 @@
 </tbody>
 </table>
 <p>Output: <code>Internet connectivity test passed (www.example.com, HTTP status 200)</code>, or <code>... failed after n tries</code> with the reason.</p>
+<p>Dashboard: <code>--drsm=fname</code>, <code>--submit[=ID]</code> (default <code>dru_internet_test</code>), <code>--now</code>, <code>--drra=path</code> send the result to DRSM through the reporting agent, see <a href="dashboard-hooks.html">Dashboard</a>.</p>
 <p>Exit status: 0 passed, 1 every try failed, 2 usage error.</p>
 <p>Linux:</p>
 <pre><code>internet-test -c 3 -w 10 www.example.com
@@ -137,6 +138,7 @@ if ($LASTEXITCODE -ne 0) { Write-Warning 'no Internet' }
 </tbody>
 </table>
 <p>Each address gets a <code>Contacting host:</code> block (<code>Hostname:</code>, then <code>Host is up, reply in n ms</code> or <code>Host not responding.</code>). The output ends with <code>n of m hosts answered</code>. One host that fails does not stop the sweep.</p>
+<p>Dashboard: <code>--drsm=fname</code>, <code>--submit[=ID]</code> (default <code>dru_pingscan</code>), <code>--now</code>, <code>--drra=path</code> send the result to DRSM through the reporting agent, see <a href="dashboard-hooks.html">Dashboard</a>.</p>
 <p>Exit status: 0 if any host answered, 1 if none did, 2 on an error.</p>
 <p>Linux:</p>
 <pre><code>pingscan 192.0.2
@@ -181,6 +183,7 @@ pingscan -u -t 300 192.0.2.10-40 &gt; lan_up.txt
 <pre><code>192.0.2.10  www.example.com fwd_ok  up (0.4 ms)
 192.0.2.11  old-host.example.com    fwd_mismatch 192.0.2.99 down
 </code></pre>
+<p>Dashboard: <code>--drsm=fname</code>, <code>--submit[=ID]</code> (default <code>dru_dnsscan</code>), <code>--now</code>, <code>--drra=path</code> send the result to DRSM through the reporting agent, see <a href="dashboard-hooks.html">Dashboard</a>.</p>
 <p>Exit status: 0 if any address has a name, 1 if none, 2 on an error.</p>
 <p>Linux:</p>
 <pre><code>dnsscan 192.0.2
@@ -239,6 +242,7 @@ TCP port 443 open
   Name:     https
 2 of 3 TCP ports open
 </code></pre>
+<p>Dashboard: <code>--drsm=fname</code>, <code>--submit[=ID]</code> (default <code>dru_portscan</code>), <code>--now</code>, <code>--drra=path</code> send the result to DRSM through the reporting agent, see <a href="dashboard-hooks.html">Dashboard</a>.</p>
 <p>Exit status: 0 if any port is open, 1 if none is, 2 on an error.</p>
 <p>Linux:</p>
 <pre><code>portscan www.example.com 22,80,443
@@ -290,6 +294,7 @@ portscan -n db.example.com 1433 &gt; nul &amp;&amp; echo database port is open
 </tbody>
 </table>
 <p>Each open port is printed as <code>port/tcp name aliases # comment</code>, and each address ends with <code>n open TCP port(s)</code>.</p>
+<p>Dashboard: <code>--drsm=fname</code>, <code>--submit[=ID]</code> (default <code>dru_netpscan</code>), <code>--now</code>, <code>--drra=path</code> send the result to DRSM through the reporting agent, see <a href="dashboard-hooks.html">Dashboard</a>.</p>
 <p>Exit status: 0 when the scan ran, 2 on an error.</p>
 <p>An address list (<code>servers.txt</code>):</p>
 <pre><code># web and database servers
@@ -349,6 +354,7 @@ netpscan -A servers.txt C:\tools\services.txt
 <p>An IEEE OUI list converts to a vendor file, for example on Linux:</p>
 <pre><code>grep '(hex)' oui.txt | sed -E 's/^([0-9A-F]{2})-([0-9A-F]{2})-([0-9A-F]{2}) +\(hex\)\t+/\1\2\3 /' &gt; maccodes.txt
 </code></pre>
+<p>Dashboard: <code>--drsm=fname</code>, <code>--submit[=ID]</code> (default <code>dru_arpscan</code>), <code>--now</code>, <code>--drra=path</code> send the result to DRSM through the reporting agent, see <a href="dashboard-hooks.html">Dashboard</a>.</p>
 <p>Exit status: 0 if any MAC address was found, 1 if none, 2 on an error.</p>
 <p>Linux:</p>
 <pre><code>arpscan 192.0.2
@@ -382,6 +388,7 @@ arpscan -v maccodes.txt -o lan.txt 192.0.2
 </tbody>
 </table>
 <p>It shows the host's names, pings it, and prints <code>MAC Address: XX:XX:XX:XX:XX:XX</code>.</p>
+<p>Dashboard: <code>--drsm=fname</code>, <code>--submit[=ID]</code> (default <code>dru_getmac</code>), <code>--now</code>, <code>--drra=path</code> send the result to DRSM through the reporting agent, see <a href="dashboard-hooks.html">Dashboard</a>.</p>
 <p>Exit status: 0 with the MAC address, 1 if there is no ARP entry (the host did not answer or is not on a local network), 2 on an error.</p>
 <p>Linux:</p>
 <pre><code>getmac 192.0.2.12

@@ -26,6 +26,8 @@ File change GMT  (ctime): Thu, 19 Nov 2026 18:11:41 GMT
 File is 0 second(s) old
 ```
 
+Dashboard: `--drsm=fname`, `--submit[=ID]` (default `dru_filetimes`), `--now`, `--drra=path` send the result to DRSM through the reporting agent, see [Dashboard](../../docs/dashboard-hooks.md).
+
 Exit status 1 if any file cannot be read, or on a usage error.
 
 Linux:

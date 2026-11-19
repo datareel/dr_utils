@@ -21,6 +21,8 @@ netpscan [switches] iplist_file [services_file]
 
 Each open port is printed as `port/tcp name aliases # comment`, and each address ends with `n open TCP port(s)`.
 
+Dashboard: `--drsm=fname`, `--submit[=ID]` (default `dru_netpscan`), `--now`, `--drra=path` send the result to DRSM through the reporting agent, see [Dashboard](../../docs/dashboard-hooks.md).
+
 Exit status: 0 when the scan ran, 2 on an error.
 
 An address list (`servers.txt`):

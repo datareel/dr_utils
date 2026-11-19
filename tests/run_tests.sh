@@ -125,6 +125,18 @@ else
   check_rc "internet-test URL" 0 "$BIN/internet-test" -c 1 -p "$PORT" "http://127.0.0.1/index.html"
   check_rc "internet-test fail" 1 "$BIN/internet-test" -c 2 -w 0 -t 500 "127.0.0.1:$CLOSED"; has "failed after 2" 'failed after 2 tries'
   check_rc "internet-test bad name" 1 "$BIN/internet-test" -c 1 no-such-host.invalid; has "DNS step" 'DNS:'
+  echo "--- TCP tools: dashboard lines (--drsm)"
+  check_rc "portscan --drsm" 0 "$BIN/portscan" -n 127.0.0.1 "$CLOSED,$PORT" services.txt --drsm="$WORK/ps.lines"
+  OUT=$(cat "$WORK/ps.lines"); has "portscan summary" "^INFO - portscan 127.0.0.1 \(127.0.0.1\): 1 of 2 TCP ports open, ping not run\$"
+  has "portscan port values" "^DETAIL port_$PORT=open\$"; has "portscan closed value" "^DETAIL port_$CLOSED=closed\$"
+  has "portscan open row" "^UPLOAD row\|$PORT\|open\|drtest\$"
+  check_rc "netpscan --drsm" 0 "$BIN/netpscan" -p "$CLOSED,$PORT" iplist.txt services.txt --drsm="$WORK/np.lines"
+  OUT=$(cat "$WORK/np.lines"); has "netpscan values" '^DETAIL open_ports=1$'; has "netpscan row" "^UPLOAD row\|127.0.0.1\|127.0.0.1\|.*\|1\|$PORT\$"
+  check_rc "internet-test --drsm pass" 0 "$BIN/internet-test" -c 1 "127.0.0.1:$PORT" --drsm="$WORK/it.lines"
+  OUT=$(cat "$WORK/it.lines"); has "internet-test passed value" '^DETAIL passed=1$'; has "internet-test result" '^DETAIL result=HTTP status 200$'
+  check_rc "internet-test --drsm fail" 1 "$BIN/internet-test" -c 1 -t 500 "127.0.0.1:$CLOSED" --drsm="$WORK/it2.lines"
+  OUT=$(cat "$WORK/it2.lines"); has "internet-test failed value" '^DETAIL passed=0$'
+  if grep -q '^ERROR' "$WORK/it2.lines"; then bad "a failed test is a value, not an ERROR line"; else ok "a failed test is a value, not an ERROR line"; fi
   kill "$HTTP_PID" 2>/dev/null; wait "$HTTP_PID" 2>/dev/null
 fi
 
@@ -323,6 +335,38 @@ if command -v python3 > /dev/null && python3 -c 'import matplotlib' 2> /dev/null
   OUT=$(cat "$WORK/drra.args"); has "report submit arguments" "^submit --hook dru_report --now $WORK/report5.html\$"
   check_rc "dr_report --now alone" 2 python3 "$TOP/benchmarks/plot/dr_report.py" -o "$WORK/report6.html" --now "$WORK/cpu1.dat"
 fi
+echo "--- dashboard hooks: file and network tools"
+touch -d '3 hours ago' "$WORK/h3.txt"; touch "$WORK/h0.txt"
+check_rc "file_hours --drsm YES" 0 "$BIN/file_hours" "$WORK/h3.txt" 2 --drsm="$WORK/fh.lines"
+OUT=$(cat "$WORK/fh.lines"); has "file_hours stale" '^DETAIL stale=1$'; has "file_hours age" '^DETAIL age_hours=3.0[0-9]$'
+check_rc "file_hours --submit NOT" 0 "$BIN/file_hours" "$WORK/h0.txt" 2 --submit --drra="$FAKE"
+OUT=$(cat "$WORK/drra.args"); has "file_hours hook ID" '^submit --hook dru_file_hours /'
+OUT=$(cat "$WORK/drra.payload"); has "file_hours not stale" '^DETAIL stale=0$'
+check_rc "file_hours missing --drsm" 1 "$BIN/file_hours" "$WORK/none.txt" 2 --drsm="$WORK/fh2.lines"
+OUT=$(cat "$WORK/fh2.lines"); has "file_hours ERROR line" '^ERROR - file_hours: ERR - .*none.txt does not exist$'
+check_rc "file_hours usage error sends nothing" 1 "$BIN/file_hours" "$WORK/h0.txt" --drsm="$WORK/fh3.lines"
+if [ -e "$WORK/fh3.lines" ]; then bad "no lines on a usage error"; else ok "no lines on a usage error"; fi
+mkdir -p "$WORK/hp"; touch -d '3 days ago' "$WORK/hp/a.log"; touch "$WORK/hp/b.log"
+check_rc "file_purge -n --drsm" 0 "$BIN/file_purge" -n -d2 "$WORK/hp/a.log" "$WORK/hp/b.log" --drsm="$WORK/fp.lines"
+OUT=$(cat "$WORK/fp.lines"); has "file_purge counts" '^DETAIL would_purge=1$'; has "file_purge kept" '^DETAIL kept=1$'
+has "file_purge rows" '^UPLOAD row\|dry run\|.*a.log would be purged'
+if [ -f "$WORK/hp/a.log" ]; then ok "file_purge -n kept the file"; else bad "file_purge -n kept the file"; fi
+check_rc "filetimes -n --drsm" 1 "$BIN/filetimes" -n "$WORK/h3.txt" "$WORK/h0.txt" "$WORK/none.txt" --drsm="$WORK/ft.lines"
+OUT=$(cat "$WORK/ft.lines"); has "filetimes newest" '^DETAIL newest_file=.*h0.txt$'; has "filetimes errors" '^DETAIL errors=1$'
+has "filetimes row" '^UPLOAD row\|.*h3.txt\|[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9:]{8}\|3.0[0-9]\|ok$'
+check_rc "pingscan --drsm" 0 "$BIN/pingscan" -t 300 127.0.0.1 --drsm="$WORK/pg.lines"
+OUT=$(cat "$WORK/pg.lines"); has "pingscan up" '^DETAIL up=1$'; has "pingscan row" '^UPLOAD row\|127.0.0.1\|.*\|up\|[0-9.]+$'
+check_rc "dnsscan --drsm" 0 "$BIN/dnsscan" -f -p 127.0.0.1 --drsm="$WORK/dn.lines"
+OUT=$(cat "$WORK/dn.lines"); has "dnsscan forward" '^DETAIL fwd_ok=1$'; has "dnsscan row" '^UPLOAD row\|127.0.0.1\|localhost\|fwd_ok\|up \('
+check_rc "getmac --drsm no entry" 1 "$BIN/getmac" 127.0.0.1 --drsm="$WORK/gm.lines"
+OUT=$(cat "$WORK/gm.lines"); has "getmac found 0" '^DETAIL found=0$'
+check_rc "arpscan --drsm none" 1 "$BIN/arpscan" -t 200 127.0.0.1 --drsm="$WORK/ar.lines"
+OUT=$(cat "$WORK/ar.lines"); has "arpscan found 0" '^DETAIL found=0$'
+check_rc "internet-test --submit=ID" 1 "$BIN/internet-test" -c 1 -t 300 127.0.0.1:1 --submit=web_check --now --drra="$FAKE"
+OUT=$(cat "$WORK/drra.args"); has "internet-test hook ID" '^submit --hook web_check --now /'
+check_rc "pingscan agent failure" 2 env FAKE_DRRA_FAIL=1 "$BIN/pingscan" -t 300 127.0.0.1 --submit --drra="$FAKE"
+has "pingscan agent failure message" 'agent submit failed for hook dru_pingscan'
+check_rc "tool --now without --submit" 2 "$BIN/portscan" --now 127.0.0.1 22
 for f in "$TOP"/hooks/uploads.d/*.ini; do
   id=$(basename "$f" .ini)
   if grep -q "^id=$id\$" "$f" && [ -f "$TOP/hooks/drsm/uploads/$id/plugin.conf" ] && \

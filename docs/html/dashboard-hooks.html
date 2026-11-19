@@ -30,7 +30,7 @@
 <div id="results"></div>
 <div id="content">
 <h1 id="dashboard-reporting-agent-hooks">Dashboard: reporting agent hooks</h1>
-<p>The benchmarks, <code>sar_cpu_stats</code> and <code>dr_report.py</code> can send their results to the DataReel System Monitor (DRSM) dashboard through the DataReel Reporting Agent for Linux (1.0-beta2 and later) or Windows (3.3-beta2 and later). They use the agents' <strong>hook uploads</strong>:</p>
+<p>The benchmarks, the file and network tools, <code>sar_cpu_stats</code> and <code>dr_report.py</code> can send their results to the DataReel System Monitor (DRSM) dashboard through the DataReel Reporting Agent for Linux (1.0-beta2 and later) or Windows (3.3-beta2 and later). They use the agents' <strong>hook uploads</strong>:</p>
 <ol>
 <li>The program writes its results as DRSM lines (or, for <code>dr_report.py</code>, the HTML report).</li>
 <li>It hands the file to the agent: <code>drra submit --hook &lt;id&gt; file</code> on Linux, <code>drra_svc.exe submit --hook &lt;id&gt; file</code> on Windows.</li>
@@ -39,7 +39,7 @@
 </ol>
 <p>Nothing in the agents or in DRSM changes; dr_utils only adds the hook files for them. The reference for the files is <a href="hooks.html">hooks/README.md</a>.</p>
 <h2 id="options">Options</h2>
-<p>Every benchmark except the three servers (<code>tcpserv</code>, <code>udpserv</code>, <code>mcserv</code>), and <code>sar_cpu_stats</code>, take:</p>
+<p>Every benchmark except the three servers (<code>tcpserv</code>, <code>udpserv</code>, <code>mcserv</code>), every file and network tool, and <code>sar_cpu_stats</code> take:</p>
 <table>
 <thead>
 <tr>
@@ -136,6 +136,66 @@
 <td>one row per sar file</td>
 </tr>
 <tr>
+<td><code>file_hours</code></td>
+<td><code>dru_file_hours</code></td>
+<td><code>stale</code> (1 when the file is the limit old or older), <code>age_hours</code>, <code>limit_hours</code>, <code>result</code> (YES, NOT, ERR), <code>file</code></td>
+<td>the file</td>
+</tr>
+<tr>
+<td><code>file_purge</code></td>
+<td><code>dru_file_purge</code></td>
+<td><code>purged</code>, <code>would_purge</code> (<code>-n</code>), <code>kept</code>, <code>listed</code> (<code>-l</code>), <code>errors</code>, <code>files</code>, <code>mode</code>, <code>dry_run</code></td>
+<td>a row per file: result and details</td>
+</tr>
+<tr>
+<td><code>filetimes</code></td>
+<td><code>dru_filetimes</code></td>
+<td><code>files</code>, <code>errors</code>, <code>newest_file</code>, <code>newest_age_hours</code>, <code>oldest_file</code>, <code>oldest_age_hours</code></td>
+<td>modification time and age per file</td>
+</tr>
+<tr>
+<td><code>internet-test</code></td>
+<td><code>dru_internet_test</code></td>
+<td><code>passed</code> (1 or 0), <code>tries</code>, <code>seconds</code>, <code>result</code>, <code>server</code>, <code>port</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>pingscan</code></td>
+<td><code>dru_pingscan</code></td>
+<td><code>up</code>, <code>down</code>, <code>tried</code>, <code>range</code></td>
+<td>address, name, status, reply ms (<code>-u</code>: hosts up only)</td>
+</tr>
+<tr>
+<td><code>dnsscan</code></td>
+<td><code>dru_dnsscan</code></td>
+<td><code>named</code>, <code>tried</code>, <code>fwd_ok</code> and <code>fwd_mismatch</code> (<code>-f</code>), <code>up</code> (<code>-p</code>)</td>
+<td>address, name, forward check, ping</td>
+</tr>
+<tr>
+<td><code>portscan</code></td>
+<td><code>dru_portscan</code></td>
+<td><code>open</code>, <code>ports</code>, <code>ping</code>, <code>ping_ms</code>, <code>host</code>, <code>address</code>, and <code>port_&lt;n&gt;</code> (<code>open</code> or <code>closed</code>, 64 ports or fewer)</td>
+<td>open ports (every port when there are 16 or fewer)</td>
+</tr>
+<tr>
+<td><code>netpscan</code></td>
+<td><code>dru_netpscan</code></td>
+<td><code>open_ports</code>, <code>scanned</code>, <code>up</code>, <code>skipped</code> (<code>-s</code>), <code>not_resolved</code>, <code>ports_per_host</code></td>
+<td>a row per address: ping, open count, port list</td>
+</tr>
+<tr>
+<td><code>arpscan</code></td>
+<td><code>dru_arpscan</code></td>
+<td><code>found</code>, <code>tried</code>, <code>range</code></td>
+<td>address, name, MAC address, vendor</td>
+</tr>
+<tr>
+<td><code>getmac</code></td>
+<td><code>dru_getmac</code></td>
+<td><code>found</code> (1 or 0), <code>mac</code>, <code>ping</code>, <code>host</code>, <code>address</code></td>
+<td>the host</td>
+</tr>
+<tr>
 <td><code>dr_report.py</code></td>
 <td><code>dru_report</code></td>
 <td>the whole HTML report, charts included</td>
@@ -202,6 +262,18 @@ mctest -i192.0.2.21 --submit
 sar_cpu_stats --submit --now sar_yesterday.txt
 dr_report.py -o host_report.html --submit results/
 
+# file and network tools
+file_hours /var/spool/feed/latest.dat 2 --submit
+file_purge -d30 /var/log/myapp/*.log --submit
+filetimes -n /data/incoming/*.csv --submit
+internet-test -c 3 -w 10 www.example.com --submit
+pingscan -u 192.0.2 --submit
+dnsscan -f -p 192.0.2 --submit
+portscan -n www.example.com 22,80,443 --submit
+netpscan -p 22,80,443 servers.txt --submit
+arpscan -v vendors.txt 192.0.2 --submit
+getmac printer.example.com --submit
+
 # look first, send later by hand
 cputest --drsm=cpu.drsm
 cat cpu.drsm
@@ -219,6 +291,11 @@ disktest --file=D:\bench\testfile.btx --submit
 tcptest -n4 -s1G --submit 192.0.2.10
 sar_cpu_stats --submit C:\reports\sar\node1_19.txt
 py benchmarks\plot\dr_report.py -o host_report.html --submit results
+file_hours D:\feeds\latest.dat 2 --submit
+file_purge -d30 C:\logs\myapp\*.log --submit
+internet-test -c 3 -w 10 www.example.com --submit
+pingscan -u 192.0.2 --submit
+portscan -n www.example.com 443,3389 --submit
 
 cputest --drsm=cpu.drsm
 type cpu.drsm
@@ -229,8 +306,15 @@ cputest --submit --drra=C:\test\agent\drra_svc.exe
 <p>A weekly scheduled task on Windows:</p>
 <pre><code>schtasks /Create /TN &quot;dr_utils cputest&quot; /SC WEEKLY /D SUN /ST 02:00 /RU SYSTEM /TR &quot;\&quot;C:\Program Files\dr_utils\cputest.exe\&quot; --num-threads=4 --submit&quot;
 </code></pre>
+<p>A connectivity check every 15 minutes on Windows:</p>
+<pre><code>schtasks /Create /TN &quot;dr_utils internet-test&quot; /SC MINUTE /MO 15 /RU SYSTEM /TR &quot;\&quot;C:\Program Files\dr_utils\internet-test.exe\&quot; -c 3 -w 10 www.example.com --submit&quot;
+</code></pre>
 <p>A weekly cron job on Linux (<code>/etc/cron.d/dru_cputest</code>):</p>
 <pre><code>0 2 * * 0 root /usr/local/bin/cputest --num-threads=4 --submit &gt; /dev/null
+</code></pre>
+<p>A stale feed check every 30 minutes and a nightly port check (<code>/etc/cron.d/dru_checks</code>):</p>
+<pre><code>*/30 * * * * root /usr/local/bin/file_hours /var/spool/feed/latest.dat 2 --submit &gt; /dev/null
+15 1 * * * root /usr/local/bin/portscan -n www.example.com 22,80,443 --submit &gt; /dev/null
 </code></pre>
 <p>For a scheduled benchmark, set <code>uploads_dru_cputest_MAX_AGE_HOURS</code> on the host in DRSM (see below) so a stopped job shows.</p>
 <h2 id="daily-sar-cpu-use-linux">Daily sar CPU use (Linux)</h2>
@@ -278,16 +362,66 @@ sudo hooks/linux/install_hooks.sh --sar-cron --apply
 </code></pre>
 <p>The manifest warns when the data is more than 30 hours old, so a stopped cron job shows.</p>
 <h2 id="alert-rules">Alert rules</h2>
-<p>The manifests have rules only where a limit means the same thing everywhere: UDP and multicast loss (warning over 1%, error over 10%) and sar steal or iowait spikes. Benchmark speeds depend on the hardware, so set limits per host in its DRSM host file:</p>
+<p>The manifests have rules only where a limit means the same thing everywhere:</p>
+<table>
+<thead>
+<tr>
+<th>Hook</th>
+<th>Rule</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>dru_udptest</code>, <code>dru_mctest</code></td>
+<td>warning over 1% loss, error over 10%</td>
+</tr>
+<tr>
+<td><code>dru_sar_cpu_stats</code></td>
+<td>warning on steal or iowait spikes, error when a file cannot be read</td>
+</tr>
+<tr>
+<td><code>dru_file_hours</code></td>
+<td>warning when the file is stale (<code>stale == 1</code>)</td>
+</tr>
+<tr>
+<td><code>dru_file_purge</code>, <code>dru_filetimes</code></td>
+<td>warning when a file cannot be read, deleted or moved (<code>errors &gt; 0</code>)</td>
+</tr>
+<tr>
+<td><code>dru_internet_test</code></td>
+<td>error when the test failed (<code>passed == 0</code>)</td>
+</tr>
+<tr>
+<td><code>dru_dnsscan</code></td>
+<td>warning on a forward mismatch (<code>fwd_mismatch &gt; 0</code>)</td>
+</tr>
+<tr>
+<td><code>dru_netpscan</code></td>
+<td>warning when a name in the list does not resolve</td>
+</tr>
+<tr>
+<td><code>dru_getmac</code></td>
+<td>warning when the host has no ARP entry (<code>found == 0</code>)</td>
+</tr>
+</tbody>
+</table>
+<p>A tool that cannot run (no ICMP socket, a missing file for <code>file_hours</code>) sends an ERROR line with its message. Benchmark speeds, host counts and open ports depend on the machine and network, so set limits per host in its DRSM host file:</p>
 <pre><code>uploads_dru_cputest_WARN_IF=&quot;total &lt; 50&quot;
 uploads_dru_disktest_WARN_IF=&quot;total &gt; 60&quot;
 uploads_dru_sar_cpu_stats_WARN_IF=&quot;steal_spikes &gt; 0 or iowait_spikes &gt; 0 or gaps &gt; 2&quot;
+uploads_dru_portscan_CRIT_IF=&quot;port_443 != open&quot;
+uploads_dru_portscan_WARN_IF=&quot;port_23 == open&quot;
+uploads_dru_pingscan_WARN_IF=&quot;up &lt; 12&quot;
+uploads_dru_filetimes_WARN_IF=&quot;errors &gt; 0 or newest_age_hours &gt; 2&quot;
+uploads_dru_internet_test_MAX_AGE_HOURS=2
 uploads_dru_cputest_MAX_AGE_HOURS=26
 </code></pre>
 <p>Every value in the table above can be in a rule, and the <code>METRICS</code> list of each manifest is kept for the trends page as <code>&lt;hook id&gt;_&lt;value&gt;</code> (for example <code>dru_cputest_total</code>).</p>
 <h2 id="notes">Notes</h2>
 <ul>
 <li>The dashboard files a result under the host whose agent sent it. A sar report or results from another host show under the sending host (the sar host name is in the <code>sar_host</code> value and the table).</li>
+<li>A tool run with the wrong arguments (its usage message) sends nothing.</li>
+<li><code>file_hours</code> checks one file per hook ID. For several files, give each its own ID (<code>--submit=dru_feed_a</code>) with a copy of the manifest folder of that name (<code>NAME=dru_feed_a</code>) and of the <code>.ini</code> (<code>id=dru_feed_a</code>).</li>
 <li><code>tcptest</code>, <code>udptest</code> and <code>mctest</code> send from the client or receiver side; the servers have no hook output.</li>
 </ul>
 <h2 id="testing-the-whole-path">Testing the whole path</h2>

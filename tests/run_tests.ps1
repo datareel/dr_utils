@@ -221,6 +221,31 @@ CheckRc '--now without --submit' 1 'flops' @('--now')
 CheckRc 'sar_cpu_stats --submit' 0 'sar_cpu_stats' @('--submit',"--drra=$Fake","$Sar\sar_rhel10.txt")
 $script:Out = Get-Content "$Work\drra.payload" -Raw
 Has 'sar iowait spikes value' '(?m)^DETAIL iowait_spikes=4'; Has 'sar table row' '(?m)^UPLOAD row\|sar_rhel10.txt\|'
+Write-Output '--- dashboard hooks: file and network tools'
+SetAge "$Work\h3.txt" ([TimeSpan]::FromHours(3))
+SetAge "$Work\h0.txt" ([TimeSpan]::FromMinutes(1))
+CheckRc 'file_hours --drsm YES' 0 'file_hours' @("$Work\h3.txt",'2',"--drsm=$Work\fh.lines")
+$script:Out = Get-Content "$Work\fh.lines" -Raw; Has 'file_hours stale' '(?m)^DETAIL stale=1'; Has 'file_hours age' '(?m)^DETAIL age_hours=3\.0\d'
+CheckRc 'file_hours missing --drsm' 1 'file_hours' @("$Work\none.txt",'2',"--drsm=$Work\fh2.lines")
+$script:Out = Get-Content "$Work\fh2.lines" -Raw; Has 'file_hours ERROR line' '(?m)^ERROR - file_hours: ERR - '
+New-Item -ItemType Directory -Force -Path "$Work\hp" | Out-Null
+SetAge "$Work\hp\a.log" ([TimeSpan]::FromDays(3))
+SetAge "$Work\hp\b.log" ([TimeSpan]::FromMinutes(1))
+CheckRc 'file_purge -n --drsm' 0 'file_purge' @('-n','-d2',"$Work\hp\a.log","$Work\hp\b.log","--drsm=$Work\fp.lines")
+$script:Out = Get-Content "$Work\fp.lines" -Raw; Has 'file_purge counts' '(?m)^DETAIL would_purge=1'; Has 'file_purge kept' '(?m)^DETAIL kept=1'
+if (Test-Path "$Work\hp\a.log") { Ok 'file_purge -n kept the file' } else { Bad 'file_purge -n kept the file' }
+CheckRc 'filetimes --drsm' 1 'filetimes' @("$Work\h3.txt","$Work\h0.txt","$Work\none.txt","--drsm=$Work\ft.lines")
+$script:Out = Get-Content "$Work\ft.lines" -Raw; Has 'filetimes newest' '(?m)^DETAIL newest_file=.*h0\.txt'; Has 'filetimes errors' '(?m)^DETAIL errors=1'
+CheckRc 'pingscan --drsm' 0 'pingscan' @('-t','300','127.0.0.1',"--drsm=$Work\pg.lines")
+$script:Out = Get-Content "$Work\pg.lines" -Raw; Has 'pingscan up' '(?m)^DETAIL up=1'
+$CP = FreePort
+CheckRc 'portscan --drsm closed' 1 'portscan' @('-n','-t','500','127.0.0.1',"$CP","--drsm=$Work\ps.lines")
+$script:Out = Get-Content "$Work\ps.lines" -Raw; Has 'portscan closed value' "(?m)^DETAIL port_$CP=closed"
+CheckRc 'getmac --drsm no entry' 1 'getmac' @('127.0.0.1',"--drsm=$Work\gm.lines")
+$script:Out = Get-Content "$Work\gm.lines" -Raw; Has 'getmac found 0' '(?m)^DETAIL found=0'
+CheckRc 'internet-test --submit=ID' 1 'internet-test' @('-c','1','-t','300',"127.0.0.1:$CP",'--submit=web_check','--now',"--drra=$Fake")
+$script:Out = Get-Content "$Work\drra.args" -Raw; Has 'internet-test hook ID' '^submit --hook web_check --now \S'
+$script:Out = Get-Content "$Work\drra.payload" -Raw; Has 'internet-test failed value' '(?m)^DETAIL passed=0'
 $script:Out = (& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Top 'hooks\windows\install_hooks.ps1') all 2>&1 | Out-String)
 Has 'install_hooks.ps1 dry run' '(?m)^Dry run'; Has 'install_hooks.ps1 would copy' 'would: copy .*dru_sar_cpu_stats\.ini'
 

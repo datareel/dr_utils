@@ -35,6 +35,7 @@
 #
 # Changes:
 # 11/19/2026: First version.
+# 11/19/2026: The file and network tools.
 # -----------------------------------------------------------
 set -u
 TOP=$(cd "$(dirname "$0")/.." && pwd)
@@ -148,10 +149,36 @@ expect "sar_cpu_stats submitted" sar.out "hook dru_sar_cpu_stats"
 python3 "${TOP}/benchmarks/plot/dr_report.py" -o "${T}/report.html" --submit "${SUB[@]}" cpu.dat > report.out 2>&1
 expect "dr_report submitted" report.out "hook dru_report"
 
+echo "--- file and network tools submit to the agent"
+touch -d '3 hours ago' "${T}/feed.dat"
+"${BIN}/file_hours" "${T}/feed.dat" 2 --submit "${SUB[@]}" > fh.out 2>&1
+expect "file_hours submitted" fh.out "hook dru_file_hours"
+mkdir -p "${T}/purge"; touch -d '3 days ago' "${T}/purge/old.log"; touch "${T}/purge/new.log"
+"${BIN}/file_purge" -n -d2 "${T}/purge/old.log" "${T}/purge/new.log" --submit "${SUB[@]}" > fp.out 2>&1
+expect "file_purge submitted" fp.out "hook dru_file_purge"
+"${BIN}/filetimes" "${T}/feed.dat" "${T}/purge/new.log" --submit "${SUB[@]}" > ft.out 2>&1
+expect "filetimes submitted" ft.out "hook dru_filetimes"
+"${BIN}/internet-test" -c 1 "127.0.0.1:${PORT}" --submit "${SUB[@]}" > it.out 2>&1
+expect "internet-test submitted" it.out "hook dru_internet_test"
+"${BIN}/pingscan" -t 300 127.0.0.1 --submit "${SUB[@]}" > pg.out 2>&1
+expect "pingscan submitted" pg.out "hook dru_pingscan"
+"${BIN}/dnsscan" -f 127.0.0.1 --submit "${SUB[@]}" > dn.out 2>&1
+expect "dnsscan submitted" dn.out "hook dru_dnsscan"
+"${BIN}/portscan" -n 127.0.0.1 "${PORT}" --submit "${SUB[@]}" > ps.out 2>&1
+expect "portscan submitted" ps.out "hook dru_portscan"
+echo 127.0.0.1 > "${T}/iplist.txt"
+"${BIN}/netpscan" -p "${PORT}" "${T}/iplist.txt" --submit "${SUB[@]}" > np.out 2>&1
+expect "netpscan submitted" np.out "hook dru_netpscan"
+"${BIN}/arpscan" -t 200 127.0.0.1 --submit "${SUB[@]}" > ar.out 2>&1
+expect "arpscan submitted" ar.out "hook dru_arpscan"
+"${BIN}/getmac" 127.0.0.1 --submit "${SUB[@]}" > gm.out 2>&1
+expect "getmac submitted" gm.out "hook dru_getmac"
+
 # The agent takes spooled files two seconds after their last change
 sleep 3
 "${A[@]}" send-uploads > send.out 2>&1
-for id in dru_cputest dru_disktest dru_memtest dru_flops dru_tcptest dru_udptest dru_mctest dru_sar_cpu_stats dru_report; do
+TOOLS_IDS="dru_file_hours dru_file_purge dru_filetimes dru_internet_test dru_pingscan dru_dnsscan dru_portscan dru_netpscan dru_arpscan dru_getmac"
+for id in dru_cputest dru_disktest dru_memtest dru_flops dru_tcptest dru_udptest dru_mctest dru_sar_cpu_stats dru_report ${TOOLS_IDS}; do
     expect "${id} sent" send.out "Upload ${id} sent: STATUS: ok"
 done
 
@@ -192,6 +219,19 @@ expect "sar probe warns on iowait spikes" "${T}/probe_dru_sar_cpu_stats.out" "io
 expect "sar probe busy metric" "${T}/probe_dru_sar_cpu_stats.out" "METRIC dru_sar_cpu_stats_busy_avg="
 expect "report probe html display" "${T}/probe_dru_report.out" "UPLOAD meta|${HOST%%.*}|dru_report|html|Benchmark report|"
 reject "report probe no error" "${T}/probe_dru_report.out" "ERROR - "
+for id in ${TOOLS_IDS}; do probe "${id}"; done
+expect "file_hours probe warns stale" "${T}/probe_dru_file_hours.out" "stale == 1 (stale is 1)"
+expect "file_hours probe metric" "${T}/probe_dru_file_hours.out" "METRIC dru_file_hours_age_hours=3"
+expect "file_purge probe metric" "${T}/probe_dru_file_purge.out" "METRIC dru_file_purge_would_purge=1"
+expect "filetimes probe metric" "${T}/probe_dru_filetimes.out" "METRIC dru_filetimes_files=2"
+expect "internet-test probe metric" "${T}/probe_dru_internet_test.out" "METRIC dru_internet_test_passed=1"
+reject "internet-test probe no error" "${T}/probe_dru_internet_test.out" "ERROR - "
+expect "pingscan probe metric" "${T}/probe_dru_pingscan.out" "METRIC dru_pingscan_up=1"
+expect "dnsscan probe row" "${T}/probe_dru_dnsscan.out" "UPLOAD row|127.0.0.1|localhost|fwd_ok"
+expect "portscan probe row" "${T}/probe_dru_portscan.out" "UPLOAD row|${PORT}|open|"
+expect "netpscan probe metric" "${T}/probe_dru_netpscan.out" "METRIC dru_netpscan_open_ports=1"
+expect "arpscan probe metric" "${T}/probe_dru_arpscan.out" "METRIC dru_arpscan_found=0"
+expect "getmac probe warns" "${T}/probe_dru_getmac.out" "found == 0 (found is 0)"
 
 echo
 if [ ${failures} -eq 0 ]; then echo "All tests passed"; else echo "${failures} tests failed"; fi

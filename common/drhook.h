@@ -78,6 +78,10 @@ Changes:
 #include <sys/wait.h>
 #endif
 
+#include <iostream>
+#include <string>
+#include <vector>
+
 #include "gxstring.h"
 
 // A number as a plain decimal: 100000000, 12.5, 0.000123
@@ -467,6 +471,99 @@ private:
     return 1;
   }
 };
+
+// Take the hook options (--drsm, --submit, --now, --drra,
+// --drra-config) out of the command line, so a tool's own argument
+// parsing never sees them. Returns the new argc.
+inline int drhook_args(drhookOptions &hook, int argc, char **argv)
+{
+  int n = 1;
+  for(int i = 1; i < argc; i++) {
+    if(!hook.Arg(argv[i])) argv[n++] = argv[i];
+  }
+  argv[n] = 0;
+  return n;
+}
+
+// Keeps a copy of the lines a tool writes to cout, while they still
+// go to the screen: the tools that report lines (YES/NOT/ERR) are read
+// back for the dashboard, and the last line explains an error.
+class drhookTee : public std::streambuf
+{
+public:
+  drhookTee() { orig = 0; max_lines = 50000; }
+  ~drhookTee() { Stop(); }
+  void Start() {
+    if(orig) return;
+    orig = std::cout.rdbuf(this);
+  }
+  void Stop() {
+    if(!orig) return;
+    std::cout.flush();
+    std::cout.rdbuf(orig);
+    orig = 0;
+    if(!cur.empty()) { Keep(cur); cur.clear(); }
+  }
+  const std::vector<std::string> &Lines() const { return lines; }
+  // The last line that is not empty, or ""
+  std::string LastLine() const {
+    if(!cur.empty()) return cur;
+    for(size_t i = lines.size(); i > 0; i--) {
+      if(!lines[i-1].empty()) return lines[i-1];
+    }
+    return std::string();
+  }
+protected:
+  virtual int overflow(int c) {
+    if(c == EOF) return 0;
+    if(orig) orig->sputc((char)c);
+    if(c == '\n') { Keep(cur); cur.clear(); }
+    else if(c != '\r' && cur.size() < 4000) cur += (char)c;
+    return c;
+  }
+  virtual std::streamsize xsputn(const char *s, std::streamsize n) {
+    for(std::streamsize i = 0; i < n; i++) overflow((unsigned char)s[i]);
+    return n;
+  }
+  virtual int sync() { return orig ? orig->pubsync() : 0; }
+private:
+  void Keep(const std::string &l) {
+    if(lines.size() < max_lines) lines.push_back(l);
+  }
+  std::streambuf *orig;
+  std::string cur;
+  std::vector<std::string> lines;
+  size_t max_lines;
+};
+
+// The first lines of every tool's results: the program and version
+inline void drhook_head(drhookLines &lines, const char *program,
+			const char *version)
+{
+  lines.Value("program", program);
+  lines.Value("version", version);
+}
+
+// Finish a tool's dashboard output: "summary" (INFO line and values)
+// then "table". With "error" set, an ERROR line with the tool's last
+// output line comes first. Returns 0 if the lines could not be
+// written or submitted (printed).
+inline int drhook_tool_finish(drhookOptions &hook, drhookTee &tee,
+			      const char *program, int error,
+			      drhookLines &summary, drhookLines &table)
+{
+  drhookLines lines;
+  if(error) {
+    gxString e;
+    std::string last = tee.LastLine();
+    e << program << ": " << (last.empty() ? "failed" : last.c_str());
+    lines.Error(e.c_str());
+  }
+  lines.Append(summary);
+  lines.Value("collected", drhook_collected().c_str());
+  lines.Append(table);
+  return hook.Finish(lines);
+}
 
 // Usage lines for the hook options
 inline void drhook_usage(const char *program)

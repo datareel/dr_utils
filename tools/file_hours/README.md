@@ -22,6 +22,8 @@ Output, one line:
 | `NOT` | the file is newer |
 | `ERR - <reason>` | the file is missing, is not a file, or has a bad time stamp |
 
+Dashboard: `--drsm=fname`, `--submit[=ID]` (default `dru_file_hours`), `--now`, `--drra=path` send the result to DRSM through the reporting agent, see [Dashboard](../../docs/dashboard-hooks.md).
+
 Exit status without `-s`: 0 for YES or NOT, 1 for ERR.
 
 Linux:

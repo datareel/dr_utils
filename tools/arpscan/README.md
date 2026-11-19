@@ -33,6 +33,8 @@ An IEEE OUI list converts to a vendor file, for example on Linux:
 grep '(hex)' oui.txt | sed -E 's/^([0-9A-F]{2})-([0-9A-F]{2})-([0-9A-F]{2}) +\(hex\)\t+/\1\2\3 /' > maccodes.txt
 ```
 
+Dashboard: `--drsm=fname`, `--submit[=ID]` (default `dru_arpscan`), `--now`, `--drra=path` send the result to DRSM through the reporting agent, see [Dashboard](../../docs/dashboard-hooks.md).
+
 Exit status: 0 if any MAC address was found, 1 if none, 2 on an error.
 
 Linux:

@@ -16,13 +16,23 @@ Nothing in the agents or in DRSM changes: this folder only has the hook files fo
 | `udptest` | `dru_udptest` | `total` (MB/s), `loss_max_pct`, `clients`, `rate_limit` | MB/s and % lost per client |
 | `mctest` | `dru_mctest` | `total` (MB/s per receiver), `loss_max_pct`, `receivers` | MB/s and % lost per receiver |
 | `sar_cpu_stats` | `dru_sar_cpu_stats` | `busy_avg`, `<field>_avg` and `<field>_peak` (user, system, iowait, steal ...), `idle_min`, `steal_spikes`, `iowait_spikes`, `gaps`, `bad_samples`, `files_failed` | one row per sar file |
+| `file_hours` | `dru_file_hours` | `stale` (1 when the file is the limit old or older), `age_hours`, `limit_hours`, `result` (YES, NOT, ERR), `file` | the file |
+| `file_purge` | `dru_file_purge` | `purged`, `would_purge` (`-n`), `kept`, `listed` (`-l`), `errors`, `files`, `mode`, `dry_run` | a row per file: result and details |
+| `filetimes` | `dru_filetimes` | `files`, `errors`, `newest_file`, `newest_age_hours`, `oldest_file`, `oldest_age_hours` | modification time and age per file |
+| `internet-test` | `dru_internet_test` | `passed` (1 or 0), `tries`, `seconds`, `result`, `server`, `port` | |
+| `pingscan` | `dru_pingscan` | `up`, `down`, `tried`, `range` | address, name, status, reply ms (`-u`: hosts up only) |
+| `dnsscan` | `dru_dnsscan` | `named`, `tried`, `fwd_ok` and `fwd_mismatch` (`-f`), `up` (`-p`) | address, name, forward check, ping |
+| `portscan` | `dru_portscan` | `open`, `ports`, `ping`, `ping_ms`, `host`, `address`, and `port_<n>` (`open` or `closed`, 64 ports or fewer) | open ports (every port when there are 16 or fewer) |
+| `netpscan` | `dru_netpscan` | `open_ports`, `scanned`, `up`, `skipped` (`-s`), `not_resolved`, `ports_per_host` | a row per address: ping, open count, port list |
+| `arpscan` | `dru_arpscan` | `found`, `tried`, `range` | address, name, MAC address, vendor |
+| `getmac` | `dru_getmac` | `found` (1 or 0), `mac`, `ping`, `host`, `address` | the host |
 | `dr_report.py` | `dru_report` | (the whole HTML report, charts included) | |
 
 Every result also has an INFO line with the main result and settings, and the values `benchmark` (or `program`), `version`, `build` and `collected`. The data format is `drsm-lines` (see "Hook uploads" in DRSM's PLUGINS.md), except `dru_report`, which is `html`.
 
 ## Options
 
-Every benchmark and `sar_cpu_stats` take:
+Every benchmark (but the three servers), every file and network tool, and `sar_cpu_stats` take:
 
 | Option | Meaning |
 |---|---|
@@ -42,6 +52,9 @@ disktest --file=/data/testfile.btx --submit
 udptest -s100M -r500M --submit 192.0.2.10
 sar_cpu_stats --submit --now sar_today.txt
 dr_report.py -o host_report.html --submit results/
+file_hours /var/spool/feed/latest.dat 2 --submit
+internet-test -c 3 -w 10 www.example.com --submit
+portscan -n www.example.com 22,80,443 --submit
 ```
 
 ## Setting it up
@@ -61,12 +74,30 @@ dr_report.py -o host_report.html --submit results/
 
 ## Alert rules
 
-The manifests have rules only where a limit means the same thing everywhere: UDP and multicast loss (warning over 1%, error over 10%) and sar steal or iowait spikes. Benchmark speeds depend on the hardware, so set a limit per host in its DRSM host file, for example:
+The manifests have rules only where a limit means the same thing everywhere:
+
+| Hook | Rule |
+|---|---|
+| `dru_udptest`, `dru_mctest` | warning over 1% loss, error over 10% |
+| `dru_sar_cpu_stats` | warning on steal or iowait spikes, error when a file cannot be read |
+| `dru_file_hours` | warning when the file is stale (`stale == 1`) |
+| `dru_file_purge`, `dru_filetimes` | warning when a file cannot be read, deleted or moved (`errors > 0`) |
+| `dru_internet_test` | error when the test failed (`passed == 0`) |
+| `dru_dnsscan` | warning on a forward mismatch (`fwd_mismatch > 0`) |
+| `dru_netpscan` | warning when a name in the list does not resolve |
+| `dru_getmac` | warning when the host has no ARP entry (`found == 0`) |
+
+A tool that cannot run (no ICMP socket, a missing file for `file_hours`) sends an ERROR line with its message. Benchmark speeds, host counts and open ports depend on the machine and network, so set limits per host in its DRSM host file:
 
 ```
 uploads_dru_cputest_WARN_IF="total < 50"
 uploads_dru_disktest_WARN_IF="total > 60"
 uploads_dru_sar_cpu_stats_WARN_IF="steal_spikes > 0 or iowait_spikes > 0 or gaps > 2"
+uploads_dru_portscan_CRIT_IF="port_443 != open"
+uploads_dru_portscan_WARN_IF="port_23 == open"
+uploads_dru_pingscan_WARN_IF="up < 12"
+uploads_dru_filetimes_WARN_IF="errors > 0 or newest_age_hours > 2"
+uploads_dru_internet_test_MAX_AGE_HOURS=2
 uploads_dru_cputest_MAX_AGE_HOURS=26
 ```
 
@@ -75,6 +106,8 @@ The benchmarks have no age check by default (they run by hand); set `MAX_AGE_HOU
 ## Notes
 
 - The dashboard files a result under the host whose agent sent it. A sar report or `--datfile` results from another host show under the sending host (the sar host name is in the `sar_host` value and the table).
+- A tool run with the wrong arguments (its usage message) sends nothing.
+- `file_hours` checks one file per hook ID. For several files, give each its own ID (`--submit=dru_feed_a`) with a copy of the manifest folder of that name (`NAME=dru_feed_a`) and of the `.ini` (`id=dru_feed_a`).
 - `tcptest`, `udptest` and `mctest` send from the client or receiver side; the servers (`tcpserv`, `udpserv`, `mcserv`) have no hook output.
 - `tests/hooks_e2e_test.sh` runs the whole path on one Linux machine: the programs, a real agent (`LRA_DIR`, a built agent source tree), its `hook.php` on a local `php -S` server, and the DRSM upload probe (`DRSM_DIR`) on the stored data.
 

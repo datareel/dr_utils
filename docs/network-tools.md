@@ -35,6 +35,8 @@ internet-test [switches] server
 
 Output: `Internet connectivity test passed (www.example.com, HTTP status 200)`, or `... failed after n tries` with the reason.
 
+Dashboard: `--drsm=fname`, `--submit[=ID]` (default `dru_internet_test`), `--now`, `--drra=path` send the result to DRSM through the reporting agent, see [Dashboard](dashboard-hooks.md).
+
 Exit status: 0 passed, 1 every try failed, 2 usage error.
 
 Linux:
@@ -81,6 +83,8 @@ pingscan [-t ms] [-u] range
 
 Each address gets a `Contacting host:` block (`Hostname:`, then `Host is up, reply in n ms` or `Host not responding.`). The output ends with `n of m hosts answered`. One host that fails does not stop the sweep.
 
+Dashboard: `--drsm=fname`, `--submit[=ID]` (default `dru_pingscan`), `--now`, `--drra=path` send the result to DRSM through the reporting agent, see [Dashboard](dashboard-hooks.md).
+
 Exit status: 0 if any host answered, 1 if none did, 2 on an error.
 
 Linux:
@@ -119,6 +123,8 @@ Output is one tab-separated line per address: address, name, then the `-f` and `
 192.0.2.10	www.example.com	fwd_ok	up (0.4 ms)
 192.0.2.11	old-host.example.com	fwd_mismatch 192.0.2.99	down
 ```
+
+Dashboard: `--drsm=fname`, `--submit[=ID]` (default `dru_dnsscan`), `--now`, `--drra=path` send the result to DRSM through the reporting agent, see [Dashboard](dashboard-hooks.md).
 
 Exit status: 0 if any address has a name, 1 if none, 2 on an error.
 
@@ -173,6 +179,8 @@ TCP port 443 open
 2 of 3 TCP ports open
 ```
 
+Dashboard: `--drsm=fname`, `--submit[=ID]` (default `dru_portscan`), `--now`, `--drra=path` send the result to DRSM through the reporting agent, see [Dashboard](dashboard-hooks.md).
+
 Exit status: 0 if any port is open, 1 if none is, 2 on an error.
 
 Linux:
@@ -210,6 +218,8 @@ netpscan [switches] iplist_file [services_file]
 | `services_file` | the services file for the port list and names |
 
 Each open port is printed as `port/tcp name aliases # comment`, and each address ends with `n open TCP port(s)`.
+
+Dashboard: `--drsm=fname`, `--submit[=ID]` (default `dru_netpscan`), `--now`, `--drra=path` send the result to DRSM through the reporting agent, see [Dashboard](dashboard-hooks.md).
 
 Exit status: 0 when the scan ran, 2 on an error.
 
@@ -269,6 +279,8 @@ An IEEE OUI list converts to a vendor file, for example on Linux:
 grep '(hex)' oui.txt | sed -E 's/^([0-9A-F]{2})-([0-9A-F]{2})-([0-9A-F]{2}) +\(hex\)\t+/\1\2\3 /' > maccodes.txt
 ```
 
+Dashboard: `--drsm=fname`, `--submit[=ID]` (default `dru_arpscan`), `--now`, `--drra=path` send the result to DRSM through the reporting agent, see [Dashboard](dashboard-hooks.md).
+
 Exit status: 0 if any MAC address was found, 1 if none, 2 on an error.
 
 Linux:
@@ -300,6 +312,8 @@ getmac hostname [ethernet_device]
 | `ethernet_device` | Linux: only an ARP entry on this interface |
 
 It shows the host's names, pings it, and prints `MAC Address: XX:XX:XX:XX:XX:XX`.
+
+Dashboard: `--drsm=fname`, `--submit[=ID]` (default `dru_getmac`), `--now`, `--drra=path` send the result to DRSM through the reporting agent, see [Dashboard](dashboard-hooks.md).
 
 Exit status: 0 with the MAC address, 1 if there is no ARP entry (the host did not answer or is not on a local network), 2 on an error.
 

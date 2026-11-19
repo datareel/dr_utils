@@ -6,7 +6,7 @@
 // C++ Compiler Used: MSVC, GCC
 // Produced By: DataReel Software Development Team
 // File Creation Date: 1999
-// Date Last Modified: 11/18/2026
+// Date Last Modified: 11/19/2026
 // Copyright (c) 2001-2026 DataReel Software Development
 // ----------------------------------------------------------- //
 // ------------- Program Description and Details ------------- //
@@ -39,6 +39,8 @@ port list, and by default only the services file ports below 1024
 Each port is tried once even if the services file lists it twice.
 Addresses that do not answer a ping are still scanned (-s skips
 them). No root needed on Linux for the TCP scan.
+11/19/2026: --drsm and --submit: results for the DRSM dashboard through
+the DataReel Reporting Agents (hooks/README.md).
 */
 // ----------------------------------------------------------- //
 #include "gxdlcode.h"
@@ -52,6 +54,7 @@ using namespace std;
 #include <string.h>
 #include "drnet.h"
 #include "drutil.h"
+#include "drhook.h"
 
 const char *ProgramName = "netpscan";
 const char *VersionString = DR_UTILS_VERSION;
@@ -84,6 +87,7 @@ void HelpMessage(const char *pname)
   cout << "Exit status: 0 when the scan ran, 2 on an error." << "\n";
   cout << "Scan only hosts you own or are allowed to scan." << "\n";
   cout << "\n" << flush;
+  drhook_usage(ProgramName);
 }
 
 // Parse "22,80,443" or "1-1024" into scan_ports. Returns the count, or
@@ -115,7 +119,19 @@ int ParsePorts(const char *spec)
   return n;
 }
 
-int main(int argc, char **argv)
+// Dashboard output (--drsm, --submit, see common/drhook.h): set
+// hook_ready once the arguments are good, so a usage error sends
+// nothing
+drhookOptions hook("netpscan");
+drhookTee hook_tee;
+drhookLines hook_summary;
+drhookLines hook_table;
+int hook_ready = 0;
+int hook_nports = 0, hook_scanned = 0, hook_up = 0, hook_skipped = 0;
+int hook_unresolved = 0;
+long hook_open = 0;
+
+int RunTool(int argc, char **argv)
 {
   int timeout_ms = 500;
   int all_services = 0;
@@ -187,6 +203,11 @@ int main(int argc, char **argv)
     return 2;
   }
 
+  hook_ready = 1;
+  hook_nports = nports;
+  hook_table.Columns();
+  hook_table.Cell("Host"); hook_table.Cell("Address"); hook_table.Cell("Name");
+  hook_table.Cell("Ping"); hook_table.Cell("Open"); hook_table.Cell("Ports");
   cerr << "Scanning " << nports << " TCP ports per address" << "\n";
   char line[512];
   int hosts = 0;
@@ -205,10 +226,17 @@ int main(int argc, char **argv)
     cout << "\n" << "Contacting host: " << entry.c_str() << "\n";
     if(!drnet_resolve(entry.c_str(), ip, err)) {
       cout << err.c_str() << "\n" << flush;
+      hook_unresolved++;
+      hook_table.Row();
+      hook_table.Cell(entry.c_str());
+      hook_table.Cell(""); hook_table.Cell("");
+      hook_table.Cell("not resolved");
+      hook_table.Cell(""); hook_table.Cell(err.c_str());
       continue;
     }
     hosts++;
     gxString name;
+    gxString hping;
     if(drnet_reverse(ip.c_str(), name)) {
       cout << "DNS name entry: " << name.c_str() << "\n";
     }
@@ -221,18 +249,33 @@ int main(int argc, char **argv)
     int rv = drnet_ping(ip.c_str(), timeout_ms, rtt, err);
     if(rv == DRNET_REPLY) {
       cout << "Host is up (ping)" << "\n";
+      hping = "up";
+      hook_up++;
     }
     else if(rv == DRNET_NO_REPLY) {
       cout << "Host not responding to ping." << "\n";
-      if(skip_down) { cout << flush; continue; }
+      hping = "no reply";
+      if(skip_down) {
+        hook_skipped++;
+        hook_table.Row();
+        hook_table.Cell(entry.c_str());
+        hook_table.Cell(ip.c_str());
+        hook_table.Cell(name.c_str());
+        hook_table.Cell("no reply, not scanned");
+        hook_table.Cell(""); hook_table.Cell("");
+        cout << flush;
+        continue;
+      }
     }
     else {
       cout << "Ping skipped: " << err.c_str() << "\n";
+      hping = "skipped";
     }
 
     cerr << "Scanning " << ip.c_str() << "..." << "\n";
     cout << "Scanning specified TCP ports..." << "\n" << flush;
     int open_ports = 0;
+    gxString plist;
     for(int i = 0; i < nports; i++) {
       int port = scan_ports[i];
       int crv = drnet_tcp_connect(ip.c_str(), port, timeout_ms, err);
@@ -242,6 +285,8 @@ int main(int argc, char **argv)
       }
       if(crv != 1) continue;
       open_ports++;
+      if(!plist.is_null()) plist << " ";
+      plist << port;
       cout << "TCP port " << port << " open" << "\n";
       const drnetService *s = drnet_find_service(services_list,
 						 num_services, port);
@@ -254,6 +299,15 @@ int main(int argc, char **argv)
       cout << "\n" << flush;
     }
     cout << open_ports << " open TCP port(s)" << "\n";
+    hook_scanned++;
+    hook_open += open_ports;
+    hook_table.Row();
+    hook_table.Cell(entry.c_str());
+    hook_table.Cell(ip.c_str());
+    hook_table.Cell(name.c_str());
+    hook_table.Cell(hping.c_str());
+    hook_table.Cell((double)open_ports);
+    hook_table.Cell(plist.c_str());
     cout << "Comments:" << "\n" << flush; // Space for written comments
   }
   if(hosts == 0) {
@@ -261,6 +315,37 @@ int main(int argc, char **argv)
     return 2;
   }
   return 0;
+}
+// The scan as DRSM lines: a row per address with its open ports
+int HookFinish(int rc)
+{
+  gxString info;
+  info << "netpscan: " << hook_scanned << " address(es) scanned on "
+       << hook_nports << " TCP ports, " << hook_open << " open port(s)";
+  if(hook_skipped) info << ", " << hook_skipped << " skipped (no ping reply)";
+  if(hook_unresolved) info << ", " << hook_unresolved << " not resolved";
+  hook_summary.Info(info.c_str());
+  drhook_head(hook_summary, ProgramName, VersionString);
+  hook_summary.Value("ports_per_host", (double)hook_nports);
+  hook_summary.Value("scanned", (double)hook_scanned);
+  hook_summary.Value("up", (double)hook_up);
+  hook_summary.Value("skipped", (double)hook_skipped);
+  hook_summary.Value("not_resolved", (double)hook_unresolved);
+  hook_summary.Value("open_ports", (double)hook_open);
+  return drhook_tool_finish(hook, hook_tee, ProgramName, rc == 2,
+			    hook_summary, hook_table);
+}
+
+int main(int argc, char **argv)
+{
+  argc = drhook_args(hook, argc, argv);
+  if(!hook.Check()) return 2;
+  if(hook.Wanted()) hook_tee.Start();
+  int rc = RunTool(argc, argv);
+  hook_tee.Stop();
+  if(!hook.Wanted() || !hook_ready) return rc;
+  if(!HookFinish(rc)) return 2;
+  return rc;
 }
 // ----------------------------------------------------------- //
 // ------------------------------- //

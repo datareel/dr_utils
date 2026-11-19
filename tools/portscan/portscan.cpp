@@ -6,7 +6,7 @@
 // C++ Compiler Used: MSVC, GCC
 // Produced By: DataReel Software Development Team
 // File Creation Date: 1999
-// Date Last Modified: 11/18/2026
+// Date Last Modified: 11/19/2026
 // Copyright (c) 2001-2026 DataReel Software Development
 // ----------------------------------------------------------- //
 // ------------- Program Description and Details ------------- //
@@ -37,6 +37,8 @@ to 1024 ports), a connect timeout (a filtered port no longer waits
 two minutes), and the ping is informational: a host that drops ICMP
 behind a firewall is still scanned. The Windows services file is
 read from %SystemRoot%\System32\drivers\etc.
+11/19/2026: --drsm and --submit: results for the DRSM dashboard through
+the DataReel Reporting Agents (hooks/README.md).
 */
 // ----------------------------------------------------------- //
 #include "gxdlcode.h"
@@ -49,6 +51,7 @@ using namespace std;
 #include <string.h>
 #include "drnet.h"
 #include "drutil.h"
+#include "drhook.h"
 
 const char *ProgramName = "portscan";
 const char *VersionString = DR_UTILS_VERSION;
@@ -73,6 +76,7 @@ void HelpMessage(const char *pname)
        << "\n";
   cout << "Scan only hosts you own or are allowed to scan." << "\n";
   cout << "\n" << flush;
+  drhook_usage(ProgramName);
 }
 
 // Parse "22", "22,80,443", "8000-8100" or a mix. Returns the count,
@@ -120,7 +124,19 @@ int FindServiceByPort(int port)
   return 1;
 }
 
-int main(int argc, char **argv)
+// Dashboard output (--drsm, --submit, see common/drhook.h): set
+// hook_ready once the arguments are good, so a usage error sends
+// nothing
+drhookOptions hook("portscan");
+drhookTee hook_tee;
+drhookLines hook_summary;
+drhookLines hook_table;
+int hook_ready = 0;
+gxString hook_host, hook_ip, hook_ping = "not run", hook_ping_ms;
+int hook_nports = 0, hook_open = 0;
+drhookLines hook_ports;  // port_<n>=open|closed (64 ports or fewer)
+
+int RunTool(int argc, char **argv)
 {
   int timeout_ms = 2000;
   int do_ping = 1;
@@ -176,6 +192,13 @@ int main(int argc, char **argv)
     cout << err.c_str() << "\n" << flush;
     return 2;
   }
+  hook_ready = 1;
+  hook_host = hostname;
+  hook_ip = ip;
+  hook_nports = nports;
+  hook_table.Columns();
+  hook_table.Cell("Port"); hook_table.Cell("State");
+  hook_table.Cell("Service");
   cout << "Contacting host: " << hostname << "\n";
   gxString info;
   if(drnet_host_info(hostname, info)) cout << info.c_str();
@@ -187,13 +210,17 @@ int main(int argc, char **argv)
       char buf[64];
       sprintf(buf, "%.1f", rtt);
       cout << "Ping reply in " << buf << " ms" << "\n";
+      hook_ping = "up";
+      hook_ping_ms = buf;
     }
     else if(rv == DRNET_NO_REPLY) {
+      hook_ping = "no reply";
       cout << "No ping reply (the host or a firewall may drop ICMP)"
 	   << "\n";
     }
     else {
       cout << "Ping skipped: " << err.c_str() << "\n";
+      hook_ping = "skipped";
     }
   }
   cout << flush;
@@ -208,13 +235,29 @@ int main(int argc, char **argv)
     if(rv == 1) {
       open_ports++;
       cout << "TCP port " << ports[i] << " open" << "\n";
+      const drnetService *hs = drnet_find_service(services_list,
+						  num_services, ports[i]);
+      hook_table.Row();
+      hook_table.Cell((double)ports[i]);
+      hook_table.Cell("open");
+      hook_table.Cell(hs ? hs->name : "");
       if(!FindServiceByPort(ports[i])) {
 	cout << "  Service type unknown" << "\n";
       }
     }
     else if(nports <= 16) { // A short list shows every port
       cout << "TCP port " << ports[i] << " closed or filtered" << "\n";
+      hook_table.Row();
+      hook_table.Cell((double)ports[i]);
+      hook_table.Cell("closed or filtered");
+      hook_table.Cell("");
     }
+    if(nports <= 64) {
+      char vn[32];
+      sprintf(vn, "port_%d", ports[i]);
+      hook_ports.Value(vn, rv == 1 ? "open" : "closed");
+    }
+    hook_open = open_ports;
     cout << flush;
   }
   if(nports > 1) {
@@ -222,6 +265,38 @@ int main(int argc, char **argv)
 	 << flush;
   }
   return open_ports ? 0 : 1;
+}
+// The scan as DRSM lines: the host, ping, open ports, a value per
+// port (port_22=open) for rules and a row per open port (every port
+// when there are 16 or fewer)
+int HookFinish(int rc)
+{
+  gxString info;
+  info << "portscan " << hook_host << " (" << hook_ip << "): " << hook_open
+       << " of " << hook_nports << " TCP ports open, ping " << hook_ping;
+  hook_summary.Info(info.c_str());
+  drhook_head(hook_summary, ProgramName, VersionString);
+  hook_summary.Value("host", hook_host.c_str());
+  hook_summary.Value("address", hook_ip.c_str());
+  hook_summary.Value("ping", hook_ping.c_str());
+  if(!hook_ping_ms.is_null()) hook_summary.Value("ping_ms", hook_ping_ms.c_str());
+  hook_summary.Value("ports", (double)hook_nports);
+  hook_summary.Value("open", (double)hook_open);
+  hook_summary.Append(hook_ports);
+  return drhook_tool_finish(hook, hook_tee, ProgramName, rc == 2,
+			    hook_summary, hook_table);
+}
+
+int main(int argc, char **argv)
+{
+  argc = drhook_args(hook, argc, argv);
+  if(!hook.Check()) return 2;
+  if(hook.Wanted()) hook_tee.Start();
+  int rc = RunTool(argc, argv);
+  hook_tee.Stop();
+  if(!hook.Wanted() || !hook_ready) return rc;
+  if(!HookFinish(rc)) return 2;
+  return rc;
 }
 // ----------------------------------------------------------- //
 // ------------------------------- //

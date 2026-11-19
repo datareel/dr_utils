@@ -1,6 +1,6 @@
 # Dashboard: reporting agent hooks
 
-The benchmarks, `sar_cpu_stats` and `dr_report.py` can send their results to the DataReel System Monitor (DRSM) dashboard through the DataReel Reporting Agent for Linux (1.0-beta2 and later) or Windows (3.3-beta2 and later). They use the agents' **hook uploads**:
+The benchmarks, the file and network tools, `sar_cpu_stats` and `dr_report.py` can send their results to the DataReel System Monitor (DRSM) dashboard through the DataReel Reporting Agent for Linux (1.0-beta2 and later) or Windows (3.3-beta2 and later). They use the agents' **hook uploads**:
 
 1. The program writes its results as DRSM lines (or, for `dr_report.py`, the HTML report).
 2. It hands the file to the agent: `drra submit --hook <id> file` on Linux, `drra_svc.exe submit --hook <id> file` on Windows.
@@ -11,7 +11,7 @@ Nothing in the agents or in DRSM changes; dr_utils only adds the hook files for 
 
 ## Options
 
-Every benchmark except the three servers (`tcpserv`, `udpserv`, `mcserv`), and `sar_cpu_stats`, take:
+Every benchmark except the three servers (`tcpserv`, `udpserv`, `mcserv`), every file and network tool, and `sar_cpu_stats` take:
 
 | Option | Meaning |
 |---|---|
@@ -39,6 +39,16 @@ Every benchmark except the three servers (`tcpserv`, `udpserv`, `mcserv`), and `
 | `udptest` | `dru_udptest` | `total` (MB/s), `loss_max_pct`, `clients`, `rate_limit` | MB/s and % lost per client |
 | `mctest` | `dru_mctest` | `total` (MB/s per receiver), `loss_max_pct`, `receivers` | MB/s and % lost per receiver |
 | `sar_cpu_stats` | `dru_sar_cpu_stats` | `busy_avg`, `<field>_avg` and `<field>_peak`, `idle_min`, `steal_spikes`, `iowait_spikes`, `gaps`, `bad_samples`, `files_failed` | one row per sar file |
+| `file_hours` | `dru_file_hours` | `stale` (1 when the file is the limit old or older), `age_hours`, `limit_hours`, `result` (YES, NOT, ERR), `file` | the file |
+| `file_purge` | `dru_file_purge` | `purged`, `would_purge` (`-n`), `kept`, `listed` (`-l`), `errors`, `files`, `mode`, `dry_run` | a row per file: result and details |
+| `filetimes` | `dru_filetimes` | `files`, `errors`, `newest_file`, `newest_age_hours`, `oldest_file`, `oldest_age_hours` | modification time and age per file |
+| `internet-test` | `dru_internet_test` | `passed` (1 or 0), `tries`, `seconds`, `result`, `server`, `port` | |
+| `pingscan` | `dru_pingscan` | `up`, `down`, `tried`, `range` | address, name, status, reply ms (`-u`: hosts up only) |
+| `dnsscan` | `dru_dnsscan` | `named`, `tried`, `fwd_ok` and `fwd_mismatch` (`-f`), `up` (`-p`) | address, name, forward check, ping |
+| `portscan` | `dru_portscan` | `open`, `ports`, `ping`, `ping_ms`, `host`, `address`, and `port_<n>` (`open` or `closed`, 64 ports or fewer) | open ports (every port when there are 16 or fewer) |
+| `netpscan` | `dru_netpscan` | `open_ports`, `scanned`, `up`, `skipped` (`-s`), `not_resolved`, `ports_per_host` | a row per address: ping, open count, port list |
+| `arpscan` | `dru_arpscan` | `found`, `tried`, `range` | address, name, MAC address, vendor |
+| `getmac` | `dru_getmac` | `found` (1 or 0), `mac`, `ping`, `host`, `address` | the host |
 | `dr_report.py` | `dru_report` | the whole HTML report, charts included | |
 
 Each result also has an INFO line with the main result and settings, and the values `benchmark` (or `program`), `version`, `build` and `collected`. What `cputest --num-threads=2 --drsm=cpu.drsm` writes:
@@ -131,6 +141,18 @@ mctest -i192.0.2.21 --submit
 sar_cpu_stats --submit --now sar_yesterday.txt
 dr_report.py -o host_report.html --submit results/
 
+# file and network tools
+file_hours /var/spool/feed/latest.dat 2 --submit
+file_purge -d30 /var/log/myapp/*.log --submit
+filetimes -n /data/incoming/*.csv --submit
+internet-test -c 3 -w 10 www.example.com --submit
+pingscan -u 192.0.2 --submit
+dnsscan -f -p 192.0.2 --submit
+portscan -n www.example.com 22,80,443 --submit
+netpscan -p 22,80,443 servers.txt --submit
+arpscan -v vendors.txt 192.0.2 --submit
+getmac printer.example.com --submit
+
 # look first, send later by hand
 cputest --drsm=cpu.drsm
 cat cpu.drsm
@@ -151,6 +173,11 @@ disktest --file=D:\bench\testfile.btx --submit
 tcptest -n4 -s1G --submit 192.0.2.10
 sar_cpu_stats --submit C:\reports\sar\node1_19.txt
 py benchmarks\plot\dr_report.py -o host_report.html --submit results
+file_hours D:\feeds\latest.dat 2 --submit
+file_purge -d30 C:\logs\myapp\*.log --submit
+internet-test -c 3 -w 10 www.example.com --submit
+pingscan -u 192.0.2 --submit
+portscan -n www.example.com 443,3389 --submit
 
 cputest --drsm=cpu.drsm
 type cpu.drsm
@@ -165,10 +192,23 @@ A weekly scheduled task on Windows:
 schtasks /Create /TN "dr_utils cputest" /SC WEEKLY /D SUN /ST 02:00 /RU SYSTEM /TR "\"C:\Program Files\dr_utils\cputest.exe\" --num-threads=4 --submit"
 ```
 
+A connectivity check every 15 minutes on Windows:
+
+```
+schtasks /Create /TN "dr_utils internet-test" /SC MINUTE /MO 15 /RU SYSTEM /TR "\"C:\Program Files\dr_utils\internet-test.exe\" -c 3 -w 10 www.example.com --submit"
+```
+
 A weekly cron job on Linux (`/etc/cron.d/dru_cputest`):
 
 ```
 0 2 * * 0 root /usr/local/bin/cputest --num-threads=4 --submit > /dev/null
+```
+
+A stale feed check every 30 minutes and a nightly port check (`/etc/cron.d/dru_checks`):
+
+```
+*/30 * * * * root /usr/local/bin/file_hours /var/spool/feed/latest.dat 2 --submit > /dev/null
+15 1 * * * root /usr/local/bin/portscan -n www.example.com 22,80,443 --submit > /dev/null
 ```
 
 For a scheduled benchmark, set `uploads_dru_cputest_MAX_AGE_HOURS` on the host in DRSM (see below) so a stopped job shows.
@@ -208,12 +248,30 @@ The manifest warns when the data is more than 30 hours old, so a stopped cron jo
 
 ## Alert rules
 
-The manifests have rules only where a limit means the same thing everywhere: UDP and multicast loss (warning over 1%, error over 10%) and sar steal or iowait spikes. Benchmark speeds depend on the hardware, so set limits per host in its DRSM host file:
+The manifests have rules only where a limit means the same thing everywhere:
+
+| Hook | Rule |
+|---|---|
+| `dru_udptest`, `dru_mctest` | warning over 1% loss, error over 10% |
+| `dru_sar_cpu_stats` | warning on steal or iowait spikes, error when a file cannot be read |
+| `dru_file_hours` | warning when the file is stale (`stale == 1`) |
+| `dru_file_purge`, `dru_filetimes` | warning when a file cannot be read, deleted or moved (`errors > 0`) |
+| `dru_internet_test` | error when the test failed (`passed == 0`) |
+| `dru_dnsscan` | warning on a forward mismatch (`fwd_mismatch > 0`) |
+| `dru_netpscan` | warning when a name in the list does not resolve |
+| `dru_getmac` | warning when the host has no ARP entry (`found == 0`) |
+
+A tool that cannot run (no ICMP socket, a missing file for `file_hours`) sends an ERROR line with its message. Benchmark speeds, host counts and open ports depend on the machine and network, so set limits per host in its DRSM host file:
 
 ```
 uploads_dru_cputest_WARN_IF="total < 50"
 uploads_dru_disktest_WARN_IF="total > 60"
 uploads_dru_sar_cpu_stats_WARN_IF="steal_spikes > 0 or iowait_spikes > 0 or gaps > 2"
+uploads_dru_portscan_CRIT_IF="port_443 != open"
+uploads_dru_portscan_WARN_IF="port_23 == open"
+uploads_dru_pingscan_WARN_IF="up < 12"
+uploads_dru_filetimes_WARN_IF="errors > 0 or newest_age_hours > 2"
+uploads_dru_internet_test_MAX_AGE_HOURS=2
 uploads_dru_cputest_MAX_AGE_HOURS=26
 ```
 
@@ -222,6 +280,8 @@ Every value in the table above can be in a rule, and the `METRICS` list of each 
 ## Notes
 
 - The dashboard files a result under the host whose agent sent it. A sar report or results from another host show under the sending host (the sar host name is in the `sar_host` value and the table).
+- A tool run with the wrong arguments (its usage message) sends nothing.
+- `file_hours` checks one file per hook ID. For several files, give each its own ID (`--submit=dru_feed_a`) with a copy of the manifest folder of that name (`NAME=dru_feed_a`) and of the `.ini` (`id=dru_feed_a`).
 - `tcptest`, `udptest` and `mctest` send from the client or receiver side; the servers have no hook output.
 
 ## Testing the whole path

@@ -6,7 +6,7 @@
 // C++ Compiler Used: MSVC, GCC
 // Produced By: DataReel Software Development Team
 // File Creation Date: 09/27/2005
-// Date Last Modified: 11/18/2026
+// Date Last Modified: 11/19/2026
 // Copyright (c) 2001-2026 DataReel Software Development
 // ----------------------------------------------------------- //
 // ------------- Program Description and Details ------------- //
@@ -36,6 +36,8 @@ Changes:
 program. Several files at once, -n/-o to compare them, ages in
 days/hours/minutes/seconds. On Linux "creation" is the inode change
 time (ctime).
+11/19/2026: --drsm and --submit: results for the DRSM dashboard through
+the DataReel Reporting Agents (hooks/README.md).
 */
 // ----------------------------------------------------------- //
 #include "gxdlcode.h"
@@ -48,6 +50,7 @@ using namespace std;
 #include <string.h>
 #include "systime.h"
 #include "drutil.h"
+#include "drhook.h"
 
 const char *ProgramName = "filetimes";
 const char *VersionString = DR_UTILS_VERSION;
@@ -67,6 +70,7 @@ void HelpMessage(const char *pname)
        << "the file's age. Exit status 1 if any file cannot be read."
        << "\n";
   cout << "\n" << flush;
+  drhook_usage(ProgramName);
 }
 
 void PrintAge(double seconds)
@@ -88,7 +92,18 @@ void PrintAge(double seconds)
   cout << "File is " << buf << " old" << "\n";
 }
 
-int main(int argc, char **argv)
+// Dashboard output (--drsm, --submit, see common/drhook.h): set
+// hook_ready once the arguments are good, so a usage error sends
+// nothing
+drhookOptions hook("filetimes");
+drhookTee hook_tee;
+drhookLines hook_summary;
+drhookLines hook_table;
+int hook_ready = 0;
+int hook_first = 0, hook_argc = 0;
+char **hook_argv = 0;
+
+int RunTool(int argc, char **argv)
 {
   int newest = 0, oldest = 0;
   int narg = 1;
@@ -111,6 +126,10 @@ int main(int argc, char **argv)
     return 1;
   }
 
+  hook_ready = 1;
+  hook_first = narg;
+  hook_argc = argc;
+  hook_argv = argv;
   int errors = 0;
   SysTime systime;
   time_t now;
@@ -180,6 +199,82 @@ int main(int argc, char **argv)
     cout << flush;
   }
   return errors ? 1 : 0;
+}
+// Every file's modification time and age as DRSM lines (whatever
+// -n or -o printed): values for the newest and oldest, a row per file
+int HookFinish(int rc)
+{
+  int files = 0, errors = 0;
+  gxString newest, oldest;
+  double newest_age = 0, oldest_age = 0;
+  char buf[64];
+  hook_table.Columns();
+  hook_table.Cell("File"); hook_table.Cell("Modified");
+  hook_table.Cell("Age hours"); hook_table.Cell("Status");
+  for(int i = hook_first; i < hook_argc; i++) {
+    const char *fname = hook_argv[i];
+    time_t a, m, c;
+    double seconds = 0;
+    int rv = drutil_file_age(fname, seconds, a, m, c);
+    if(rv == DRUTIL_AGE_NOT_FILE) continue; // Directories from a wildcard
+    hook_table.Row();
+    hook_table.Cell(fname);
+    if(rv != DRUTIL_AGE_OK && rv != DRUTIL_AGE_FUTURE) {
+      errors++;
+      hook_table.Cell(""); hook_table.Cell("");
+      hook_table.Cell(drutil_age_message(rv));
+      continue;
+    }
+    files++;
+    double hours = rv == DRUTIL_AGE_FUTURE ? 0 : seconds / 3600.0;
+    sprintf(buf, "%.2f", hours);
+    char when[64];
+    strftime(when, sizeof(when), "%Y-%m-%d %H:%M:%S", localtime(&m));
+    hook_table.Cell(when);
+    hook_table.Cell(buf);
+    hook_table.Cell(rv == DRUTIL_AGE_FUTURE ? "in the future" : "ok");
+    if(newest.is_null() || hours < newest_age) {
+      newest = fname; newest_age = hours;
+    }
+    if(oldest.is_null() || hours > oldest_age) {
+      oldest = fname; oldest_age = hours;
+    }
+  }
+  gxString info;
+  info << "filetimes: " << files << " file(s)";
+  if(errors) info << ", " << errors << " cannot be read";
+  if(files) {
+    sprintf(buf, "%.2f", newest_age);
+    info << ", newest " << newest << " (" << buf << " hours)";
+    sprintf(buf, "%.2f", oldest_age);
+    info << ", oldest " << oldest << " (" << buf << " hours)";
+  }
+  hook_summary.Info(info.c_str());
+  drhook_head(hook_summary, ProgramName, VersionString);
+  hook_summary.Value("files", (double)files);
+  hook_summary.Value("errors", (double)errors);
+  if(files) {
+    hook_summary.Value("newest_file", newest.c_str());
+    sprintf(buf, "%.2f", newest_age);
+    hook_summary.Value("newest_age_hours", buf);
+    hook_summary.Value("oldest_file", oldest.c_str());
+    sprintf(buf, "%.2f", oldest_age);
+    hook_summary.Value("oldest_age_hours", buf);
+  }
+  return drhook_tool_finish(hook, hook_tee, ProgramName, 0,
+			    hook_summary, hook_table);
+}
+
+int main(int argc, char **argv)
+{
+  argc = drhook_args(hook, argc, argv);
+  if(!hook.Check()) return 1;
+  if(hook.Wanted()) hook_tee.Start();
+  int rc = RunTool(argc, argv);
+  hook_tee.Stop();
+  if(!hook.Wanted() || !hook_ready) return rc;
+  if(!HookFinish(rc)) return 1;
+  return rc;
 }
 // ----------------------------------------------------------- //
 // ------------------------------- //

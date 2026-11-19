@@ -6,7 +6,7 @@
 // C++ Compiler Used: MSVC, GCC
 // Produced By: DataReel Software Development Team
 // File Creation Date: 2005
-// Date Last Modified: 11/18/2026
+// Date Last Modified: 11/19/2026
 // Copyright (c) 2001-2026 DataReel Software Development
 // ----------------------------------------------------------- //
 // ------------- Program Description and Details ------------- //
@@ -38,6 +38,8 @@ internet-test program. -c sets the number of tries (the 2005 version
 tried forever), -w the wait between tries, -t a connect timeout, -p
 the port; -q prints only the result. Each failure says which step
 failed (DNS, connect or HTTP).
+11/19/2026: --drsm and --submit: results for the DRSM dashboard through
+the DataReel Reporting Agents (hooks/README.md).
 */
 // ----------------------------------------------------------- //
 #include "gxdlcode.h"
@@ -58,6 +60,7 @@ using namespace std;
 #include "gxsurl.h"
 #include "drnet.h"
 #include "drutil.h"
+#include "drhook.h"
 
 const char *ProgramName = "internet-test";
 const char *VersionString = DR_UTILS_VERSION;
@@ -84,6 +87,7 @@ void HelpMessage(const char *pname)
   cout << "Exit status: 0 when the test passes, 1 when every try failed, "
        << "2 on an error." << "\n";
   cout << "\n" << flush;
+  drhook_usage(ProgramName);
 }
 
 void SleepSeconds(int seconds)
@@ -132,7 +136,19 @@ int TestOnce(const gxString &server, int port, int timeout_ms,
   return 1;
 }
 
-int main(int argc, char **argv)
+// Dashboard output (--drsm, --submit, see common/drhook.h): set
+// hook_ready once the arguments are good, so a usage error sends
+// nothing
+drhookOptions hook("internet-test");
+drhookTee hook_tee;
+drhookLines hook_summary;
+drhookLines hook_table;
+int hook_ready = 0;
+gxString hook_server, hook_detail;
+int hook_port = 0, hook_passed = 0, hook_tries = 0;
+time_t hook_start = 0;
+
+int RunTool(int argc, char **argv)
 {
 #if defined (__UNIX__)
   // A server that closes the connection must not kill the program
@@ -186,14 +202,23 @@ int main(int argc, char **argv)
     return 2;
   }
 
+  hook_ready = 1;
+  hook_server = server;
+  hook_port = port;
+  hook_start = time(0);
   for(int tries = 1; ; tries++) {
     gxString why;
     if(TestOnce(server, port, timeout_ms, why)) {
+      hook_passed = 1;
+      hook_tries = tries;
+      hook_detail = why;
       cout << "Internet connectivity test passed (" << server.c_str()
 	   << ", " << why.c_str() << ")" << "\n" << flush;
       return 0;
     }
     if(count && tries >= count) {
+      hook_tries = tries;
+      hook_detail = why;
       cout << "Internet connectivity test failed after " << tries
 	   << " tries (" << why.c_str() << ")" << "\n" << flush;
       return 1;
@@ -205,6 +230,37 @@ int main(int argc, char **argv)
     SleepSeconds(wait_sec);
   }
   return 1;
+}
+// The test as DRSM lines: passed (1 or 0), tries, the last result
+int HookFinish(int rc)
+{
+  gxString info;
+  info << "internet-test " << hook_server << " port " << hook_port << ": "
+       << (hook_passed ? "passed" : "failed") << " after " << hook_tries
+       << " tr" << (hook_tries == 1 ? "y" : "ies") << " (" << hook_detail
+       << ")";
+  hook_summary.Info(info.c_str());
+  drhook_head(hook_summary, ProgramName, VersionString);
+  hook_summary.Value("server", hook_server.c_str());
+  hook_summary.Value("port", (double)hook_port);
+  hook_summary.Value("passed", hook_passed ? "1" : "0");
+  hook_summary.Value("tries", (double)hook_tries);
+  hook_summary.Value("seconds", difftime(time(0), hook_start));
+  hook_summary.Value("result", hook_detail.c_str());
+  return drhook_tool_finish(hook, hook_tee, ProgramName, rc == 2,
+			    hook_summary, hook_table);
+}
+
+int main(int argc, char **argv)
+{
+  argc = drhook_args(hook, argc, argv);
+  if(!hook.Check()) return 2;
+  if(hook.Wanted()) hook_tee.Start();
+  int rc = RunTool(argc, argv);
+  hook_tee.Stop();
+  if(!hook.Wanted() || !hook_ready) return rc;
+  if(!HookFinish(rc)) return 2;
+  return rc;
 }
 // ----------------------------------------------------------- //
 // ------------------------------- //

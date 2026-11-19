@@ -31,6 +31,8 @@ Each file gets one line:
 | `LST - name (n) hours (n) days` | the `-l` listing |
 | `DRY - name would be purged ...` | the `-n` dry run |
 
+Dashboard: `--drsm=fname`, `--submit[=ID]` (default `dru_file_purge`), `--now`, `--drra=path` send the result to DRSM through the reporting agent, see [Dashboard](../../docs/dashboard-hooks.md).
+
 Exit status: 0 when the files were checked (look at the lines for what happened to each), 1 on a usage error (bad switch, no file name, missing `-m` folder).
 
 Run with `-n` first, every time.

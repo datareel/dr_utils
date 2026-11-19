@@ -17,6 +17,8 @@ getmac hostname [ethernet_device]
 
 It shows the host's names, pings it, and prints `MAC Address: XX:XX:XX:XX:XX:XX`.
 
+Dashboard: `--drsm=fname`, `--submit[=ID]` (default `dru_getmac`), `--now`, `--drra=path` send the result to DRSM through the reporting agent, see [Dashboard](../../docs/dashboard-hooks.md).
+
 Exit status: 0 with the MAC address, 1 if there is no ARP entry (the host did not answer or is not on a local network), 2 on an error.
 
 Linux:

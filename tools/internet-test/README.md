@@ -21,6 +21,8 @@ internet-test [switches] server
 
 Output: `Internet connectivity test passed (www.example.com, HTTP status 200)`, or `... failed after n tries` with the reason.
 
+Dashboard: `--drsm=fname`, `--submit[=ID]` (default `dru_internet_test`), `--now`, `--drra=path` send the result to DRSM through the reporting agent, see [Dashboard](../../docs/dashboard-hooks.md).
+
 Exit status: 0 passed, 1 every try failed, 2 usage error.
 
 Linux:

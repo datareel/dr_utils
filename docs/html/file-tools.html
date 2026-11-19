@@ -81,6 +81,7 @@
 </tr>
 </tbody>
 </table>
+<p>Dashboard: <code>--drsm=fname</code>, <code>--submit[=ID]</code> (default <code>dru_file_hours</code>), <code>--now</code>, <code>--drra=path</code> send the result to DRSM through the reporting agent, see <a href="dashboard-hooks.html">Dashboard</a>.</p>
 <p>Exit status without <code>-s</code>: 0 for YES or NOT, 1 for ERR.</p>
 <p>Linux:</p>
 <pre><code>file_hours /var/spool/feed/latest.dat 2
@@ -178,6 +179,7 @@ file_hours -s C:\spool\feed\latest.dat 2; if ($LASTEXITCODE -eq 2) { 'cannot che
 </tr>
 </tbody>
 </table>
+<p>Dashboard: <code>--drsm=fname</code>, <code>--submit[=ID]</code> (default <code>dru_file_purge</code>), <code>--now</code>, <code>--drra=path</code> send the result to DRSM through the reporting agent, see <a href="dashboard-hooks.html">Dashboard</a>.</p>
 <p>Exit status: 0 when the files were checked (look at the lines for what happened to each), 1 on a usage error (bad switch, no file name, missing <code>-m</code> folder).</p>
 <p>Run with <code>-n</code> first, every time.</p>
 <p>Linux:</p>
@@ -236,6 +238,7 @@ File change time (ctime): 11/19/2026  01:11 PM
 File change GMT  (ctime): Thu, 19 Nov 2026 18:11:41 GMT
 File is 0 second(s) old
 </code></pre>
+<p>Dashboard: <code>--drsm=fname</code>, <code>--submit[=ID]</code> (default <code>dru_filetimes</code>), <code>--now</code>, <code>--drra=path</code> send the result to DRSM through the reporting agent, see <a href="dashboard-hooks.html">Dashboard</a>.</p>
 <p>Exit status 1 if any file cannot be read, or on a usage error.</p>
 <p>Linux:</p>
 <pre><code>filetimes /etc/hosts

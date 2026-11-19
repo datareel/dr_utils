@@ -33,7 +33,7 @@ And a system statistics tool:
 |---|---|
 | `sar_cpu_stats` | Reads sar text reports: CPU averages and peaks, steal and iowait spikes, gaps and impossible samples, or every sample as CSV |
 
-The benchmarks, `sar_cpu_stats` and `dr_report.py` can also send their results to the DataReel System Monitor dashboard through the DataReel Reporting Agents for Linux and Windows (`--submit`), see [Dashboard](#dashboard-reporting-agent-hooks).
+The tools, the benchmarks, `sar_cpu_stats` and `dr_report.py` can also send their results to the DataReel System Monitor dashboard through the DataReel Reporting Agents for Linux and Windows (`--submit`), see [Dashboard](#dashboard-reporting-agent-hooks).
 
 Use the network tools and benchmarks only on networks and hosts you own or are allowed to test. The scan tools scan one /24 at most.
 
@@ -297,12 +297,14 @@ dr_report.py -o host1_report.html --title "host1 sizing" --csv host1_summary.csv
 
 ### Dashboard (reporting agent hooks)
 
-Every benchmark and `sar_cpu_stats` take `--drsm=fname` and `--submit[=ID] [--now]`, and `dr_report.py` takes `--submit [ID] [--now]`. `--drsm` writes the results as DRSM lines: an INFO line with the main result, a value for each setting and result, and a table of the threads, clients, receivers, phases or sar files. `--submit` hands them to the DataReel Reporting Agent (`drra submit --hook dru_<program>` on Linux, `drra_svc.exe submit` on Windows), which sends them to the report server; DRSM then shows them on the host's page, with alert rules and trends. `dr_report.py --submit` sends the whole HTML report, shown by DRSM's html display.
+Every benchmark (but the three servers), every file and network tool, and `sar_cpu_stats` take `--drsm=fname` and `--submit[=ID] [--now]`, and `dr_report.py` takes `--submit [ID] [--now]`. `--drsm` writes the results as DRSM lines: an INFO line with the main result, a value for each setting and result, and a table (threads, clients, phases, sar files, hosts, ports or files). `--submit` hands them to the DataReel Reporting Agent (`drra submit --hook dru_<program>` on Linux, `drra_svc.exe submit` on Windows), which sends them to the report server; DRSM then shows them on the host's page, with alert rules and trends. `dr_report.py --submit` sends the whole HTML report, shown by DRSM's html display.
 
 ```
 cputest --num-threads=8 --submit --now
 sar_cpu_stats --submit sar_yesterday.txt
 dr_report.py -o host_report.html --submit results/
+file_hours /var/spool/feed/latest.dat 2 --submit
+portscan -n www.example.com 22,80,443 --submit
 ```
 
 The agents' upload hook files, the DRSM manifests, install scripts (dry run by default) and a daily sar cron job are in [hooks/](hooks/README.md), with the setup steps and the values each program sends. No change to the agents or DRSM is needed.

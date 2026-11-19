@@ -32,6 +32,8 @@ TCP port 443 open
 2 of 3 TCP ports open
 ```
 
+Dashboard: `--drsm=fname`, `--submit[=ID]` (default `dru_portscan`), `--now`, `--drra=path` send the result to DRSM through the reporting agent, see [Dashboard](../../docs/dashboard-hooks.md).
+
 Exit status: 0 if any port is open, 1 if none is, 2 on an error.
 
 Linux:

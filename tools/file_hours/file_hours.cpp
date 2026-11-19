@@ -6,7 +6,7 @@
 // C++ Compiler Used: MSVC, GCC
 // Produced By: DataReel Software Development Team
 // File Creation Date: 09/27/2005
-// Date Last Modified: 11/18/2026
+// Date Last Modified: 11/19/2026
 // Copyright (c) 2001-2026 DataReel Software Development
 // ----------------------------------------------------------- //
 // ------------- Program Description and Details ------------- //
@@ -36,6 +36,8 @@ Changes:
 program. Fractional hours work below one hour (0.5 is 30 minutes;
 the 2005 version said NOT for any file under one hour old). Output
 ends with a new line. -s sets the exit status from the answer.
+11/19/2026: --drsm and --submit: results for the DRSM dashboard through
+the DataReel Reporting Agents (hooks/README.md).
 */
 // ----------------------------------------------------------- //
 #include "gxdlcode.h"
@@ -47,6 +49,7 @@ using namespace std;
 #include <stdlib.h>
 #include <string.h>
 #include "drutil.h"
+#include "drhook.h"
 
 const char *ProgramName = "file_hours";
 const char *VersionString = DR_UTILS_VERSION;
@@ -66,9 +69,21 @@ void HelpMessage(const char *pname)
        << "\n" << "if the file cannot be checked. Without -s the exit"
        << "\n" << "status is 0 for YES or NOT and 1 for ERR." << "\n";
   cout << "\n" << flush;
+  drhook_usage(ProgramName);
 }
 
-int main(int argc, char **argv)
+// Dashboard output (--drsm, --submit, see common/drhook.h): set
+// hook_ready once the arguments are good, so a usage error sends
+// nothing
+drhookOptions hook("file_hours");
+drhookTee hook_tee;
+drhookLines hook_summary;
+drhookLines hook_table;
+int hook_ready = 0;
+gxString hook_file, hook_result;
+double hook_limit = 0, hook_age = 0;
+
+int RunTool(int argc, char **argv)
 {
   int use_status = 0;
   int narg = 1;
@@ -89,20 +104,77 @@ int main(int argc, char **argv)
     return use_status ? 2 : 1;
   }
 
+  hook_ready = 1;
+  hook_file = fname;
+  hook_limit = numhours;
   double seconds = 0;
   int rv = drutil_file_age(fname, seconds);
+  hook_age = seconds / 3600.0;
   if(rv != DRUTIL_AGE_OK) {
+    hook_result = "ERR";
     cout << "ERR - " << fname << " " << drutil_age_message(rv) << "\n"
 	 << flush;
     return use_status ? 2 : 1;
   }
 
   if((seconds / 3600.0) >= numhours) {
+    hook_result = "YES";
     cout << "YES" << "\n" << flush;
     return 0;
   }
+  hook_result = "NOT";
   cout << "NOT" << "\n" << flush;
   return use_status ? 1 : 0;
+}
+// The check as DRSM lines: stale is 1 when the file is the limit
+// old or older (YES); a file that cannot be checked is an ERROR
+int HookFinish(int rc)
+{
+  int err = hook_result == "ERR";
+  char buf[64];
+  gxString info;
+  info << "file_hours " << hook_file << ": ";
+  if(err) {
+    info << "cannot be checked";
+  }
+  else {
+    sprintf(buf, "%.2f", hook_age);
+    info << buf << " hours old, limit ";
+    info << drhook_num(hook_limit) << " hours: " << hook_result;
+  }
+  hook_summary.Info(info.c_str());
+  drhook_head(hook_summary, ProgramName, VersionString);
+  hook_summary.Value("file", hook_file.c_str());
+  hook_summary.Value("result", hook_result.c_str());
+  hook_summary.Value("limit_hours", hook_limit);
+  if(!err) {
+    sprintf(buf, "%.2f", hook_age);
+    hook_summary.Value("age_hours", buf);
+    hook_summary.Value("stale", hook_result == "YES" ? "1" : "0");
+  }
+  hook_table.Columns();
+  hook_table.Cell("File"); hook_table.Cell("Age hours");
+  hook_table.Cell("Limit hours"); hook_table.Cell("Result");
+  hook_table.Row();
+  hook_table.Cell(hook_file.c_str());
+  sprintf(buf, "%.2f", hook_age);
+  hook_table.Cell(err ? "" : buf);
+  hook_table.Cell(hook_limit);
+  hook_table.Cell(hook_result.c_str());
+  return drhook_tool_finish(hook, hook_tee, ProgramName, err,
+			    hook_summary, hook_table);
+}
+
+int main(int argc, char **argv)
+{
+  argc = drhook_args(hook, argc, argv);
+  if(!hook.Check()) return 1;
+  if(hook.Wanted()) hook_tee.Start();
+  int rc = RunTool(argc, argv);
+  hook_tee.Stop();
+  if(!hook.Wanted() || !hook_ready) return rc;
+  if(!HookFinish(rc)) return 1;
+  return rc;
 }
 // ----------------------------------------------------------- //
 // ------------------------------- //

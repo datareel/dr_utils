@@ -6,7 +6,7 @@
 // C++ Compiler Used: MSVC, GCC
 // Produced By: DataReel Software Development Team
 // File Creation Date: 09/27/2005
-// Date Last Modified: 11/18/2026
+// Date Last Modified: 11/19/2026
 // Copyright (c) 2001-2026 DataReel Software Development
 // ----------------------------------------------------------- //
 // ------------- Program Description and Details ------------- //
@@ -44,6 +44,8 @@ dry run. Fixed: ages under one hour or one day were counted as zero
 (-h0.5 never purged a 40 minute old file, -d0.5 never purged a 20
 hour old file). Switches are read once, in any order. Moving across
 file systems (copy, then delete) works on Windows too.
+11/19/2026: --drsm and --submit: results for the DRSM dashboard through
+the DataReel Reporting Agents (hooks/README.md).
 */
 // ----------------------------------------------------------- //
 #include "gxdlcode.h"
@@ -57,6 +59,7 @@ using namespace std;
 #include <errno.h>
 #include "dfileb.h"
 #include "drutil.h"
+#include "drhook.h"
 
 const char *ProgramName = "file_purge";
 const char *VersionString = DR_UTILS_VERSION;
@@ -120,6 +123,7 @@ void HelpMessage(const char *pname)
   cout << "           Show which logs 30 days old or older would be deleted"
        << "\n";
   cout << "\n" << flush;
+  drhook_usage(ProgramName);
 }
 
 // Returns 1 if the switch is valid
@@ -349,7 +353,16 @@ int PurgeFile(const gxString &fname)
   return 0;
 }
 
-int main(int argc, char **argv)
+// Dashboard output (--drsm, --submit, see common/drhook.h): set
+// hook_ready once the arguments are good, so a usage error sends
+// nothing
+drhookOptions hook("file_purge");
+drhookTee hook_tee;
+drhookLines hook_summary;
+drhookLines hook_table;
+int hook_ready = 0;
+
+int RunTool(int argc, char **argv)
 {
   if(argc < 2) {
     HelpMessage(argv[0]);
@@ -383,6 +396,7 @@ int main(int argc, char **argv)
     return 1;
   }
 
+  hook_ready = 1;
   int num_files = 0;
   for(i = 1; i < argc; i++) {
     if(argv[i][0] == '-' && argv[i][1] != 0) continue;
@@ -399,6 +413,75 @@ int main(int argc, char **argv)
     return 1;
   }
   return 0;
+}
+// The result lines (YES, NOT, ERR, LST, DRY) as DRSM lines: counts
+// for the rules and trends, and a row per file
+int HookFinish(int rc)
+{
+  int purged = 0, dry = 0, kept = 0, listed = 0, errors = 0;
+  hook_table.Columns();
+  hook_table.Cell("Result"); hook_table.Cell("File and details");
+  const std::vector<std::string> &out = hook_tee.Lines();
+  for(size_t i = 0; i < out.size(); i++) {
+    const std::string &l = out[i];
+    if(l.size() < 7 || l.compare(3, 3, " - ") != 0) continue;
+    std::string code = l.substr(0, 3);
+    std::string rest = l.substr(6);
+    const char *what = 0;
+    if(code == "YES") { purged++; what = move_file ? "moved" : "purged"; }
+    else if(code == "DRY") { dry++; what = "dry run"; }
+    else if(code == "LST") { listed++; what = "listed"; }
+    else if(code == "ERR") { errors++; what = "error"; }
+    else if(code == "NOT") {
+      if(rest.find(" error ") != std::string::npos) {
+	errors++; what = "error";
+      }
+      else {
+	kept++; what = "kept";
+      }
+    }
+    else continue;
+    hook_table.Row();
+    hook_table.Cell(what);
+    hook_table.Cell(rest.c_str());
+  }
+  const char *mode = list_file ? "list" : (del_exists ? "existing" :
+    (del_hours ? "hours" : "days"));
+  gxString info;
+  info << "file_purge (" << mode << (move_file ? ", move" : "")
+       << (dry_run ? ", dry run" : "") << "): ";
+  if(list_file) info << listed << " file(s) listed";
+  else if(dry_run) info << dry << " would go, " << kept << " kept";
+  else info << purged << (move_file ? " moved, " : " purged, ") << kept
+	    << " kept";
+  if(errors) info << ", " << errors << " error(s)";
+  hook_summary.Info(info.c_str());
+  drhook_head(hook_summary, ProgramName, VersionString);
+  hook_summary.Value("mode", mode);
+  hook_summary.Value("move", move_file ? "1" : "0");
+  hook_summary.Value("dry_run", dry_run ? "1" : "0");
+  if(del_hours) hook_summary.Value("limit_hours", num_hours);
+  if(del_days) hook_summary.Value("limit_days", num_days);
+  hook_summary.Value("files", (double)(purged + dry + kept + listed + errors));
+  hook_summary.Value("purged", (double)purged);
+  hook_summary.Value("would_purge", (double)dry);
+  hook_summary.Value("kept", (double)kept);
+  hook_summary.Value("listed", (double)listed);
+  hook_summary.Value("errors", (double)errors);
+  return drhook_tool_finish(hook, hook_tee, ProgramName, 0,
+			    hook_summary, hook_table);
+}
+
+int main(int argc, char **argv)
+{
+  argc = drhook_args(hook, argc, argv);
+  if(!hook.Check()) return 1;
+  if(hook.Wanted()) hook_tee.Start();
+  int rc = RunTool(argc, argv);
+  hook_tee.Stop();
+  if(!hook.Wanted() || !hook_ready) return rc;
+  if(!HookFinish(rc)) return 1;
+  return rc;
 }
 // ----------------------------------------------------------- //
 // ------------------------------- //
