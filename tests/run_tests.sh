@@ -199,6 +199,8 @@ fi
 echo "--- flops, plot and watch scripts"
 check_rc "flops 2 threads" 0 "$BIN/flops" --num-threads=2 --iterations=100m; has "flops rate" 'Total elapsed time .* (MFLOPS|GFLOPS)'
 check_rc "flops --dp" 0 "$BIN/flops" --dp --iterations=50m; has "flops dp" 'Thread\[0\]: Double precision'
+check_rc "flops --div (c/flops formula)" 0 "$BIN/flops" --div --num-threads=2 --iterations=100m; has "flops div" 'a\*b\+a/b loops'; has "flops div 3" '3 FLOPs a loop'
+check_rc "flops --div --dp" 0 "$BIN/flops" --div --dp --iterations=50m
 check_rc "flops bad iterations" 1 "$BIN/flops" --iterations=10
 if python3 -c 'import matplotlib' 2>/dev/null; then
   check_rc "plot_disk_benchmark.py PNG" 0 python3 "$TOP/benchmarks/plot/plot_disk_benchmark.py" "$WORK/disk.dat" "$WORK/disk.png"

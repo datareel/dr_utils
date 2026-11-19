@@ -172,6 +172,7 @@ CheckRc 'mcserv refuses a unicast group' 1 'mcserv' @('-g192.0.2.1')
 Write-Output '--- flops and sar_cpu_stats'
 CheckRc 'flops 2 threads' 0 'flops' @('--num-threads=2','--iterations=100m'); Has 'flops rate' 'Total elapsed time .* (MFLOPS|GFLOPS)'
 CheckRc 'flops --dp' 0 'flops' @('--dp','--iterations=50m')
+CheckRc 'flops --div' 0 'flops' @('--div','--num-threads=2','--iterations=100m'); Has 'flops div' 'a\*b\+a/b loops'
 $Sar = Join-Path $Top 'tests\data\sar'
 CheckRc 'sar RHEL 5' 0 'sar_cpu_stats' @("$Sar\sar_rhel5_partial.txt"); Has 'rhel5 samples' '52 samples of all CPUs, every 10 minutes'
 CheckRc 'sar RHEL 10' 0 'sar_cpu_stats' @("$Sar\sar_rhel10.txt"); Has 'rhel10 iowait spikes' 'iowait >= 20.0%: 4'

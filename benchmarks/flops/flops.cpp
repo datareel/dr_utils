@@ -42,7 +42,9 @@ benchmark (work_programs benchmarks/src/flops), with the same
 switches (--num-threads, --dp, --iterations). The old loop had a
 result that was never used, so an optimizing compiler removed it and
 it timed nothing; this one keeps every result, checks the sums are
-finite, and prints the time and MFLOPS or GFLOPS.
+finite, and prints the time and MFLOPS or GFLOPS. --div runs the
+formula of the c/flops program (a*b + a/b), counted as the 3
+operations it is (c/flops counted 5).
 */
 // ----------------------------------------------------------- //
 #include "gxdlcode.h"
@@ -68,6 +70,7 @@ drbenchConsole console;
 struct FLOPSThreadParm {
   int thread_number;
   int dp;
+  int div;
   unsigned long long iterations; // Multiply-adds for this thread
   double secs;
   double result;
@@ -78,6 +81,30 @@ class FLOPSTestThread : public gxThread
 private:
   void *ThreadEntryRoutine(gxThread_t *thread);
 };
+
+// The c/flops formula: a*c + a/b, a multiply, a divide and an add
+// (3 floating point operations; the old program counted 5). The
+// divide makes this much slower than multiply-add: it measures what
+// code with divisions gets.
+template<class T> double RunDivTest(unsigned long long iterations)
+{
+  T a[ArraySize];
+  // Not a power of two, and read at run time, so the compiler cannot
+  // turn the divide into a multiply
+  volatile T vb = (T)3.0, vc = (T)(2.0 / 3.0);
+  T b = vb, c = vc; // c + 1/b = 1, so the values stay near 1.0
+  for(int i = 0; i < ArraySize; i++) a[i] = (T)1.0 + (T)i / (T)ArraySize;
+  unsigned long long passes = iterations / ArraySize;
+  if(passes == 0) passes = 1;
+  for(unsigned long long p = 0; p < passes; p++) {
+    for(int i = 0; i < ArraySize; i++) {
+      a[i] = a[i] * c + a[i] / b; // Multiply, divide, add
+    }
+  }
+  double sum = 0;
+  for(int i = 0; i < ArraySize; i++) sum += (double)a[i];
+  return sum;
+}
 
 template<class T> double RunTest(unsigned long long iterations)
 {
@@ -104,9 +131,9 @@ void *FLOPSTestThread::ThreadEntryRoutine(gxThread_t *thread)
     RunTest<float>(p->iterations);
   p->secs = drbench_now() - start;
   char line[256];
-  sprintf(line, "Thread[%d]: %s precision, %llu multiply-adds in %.3f "
-	  "seconds\n", p->thread_number, p->dp ? "Double" : "Single",
-	  p->iterations, p->secs);
+  sprintf(line, "Thread[%d]: %s precision, %llu %s in %.3f seconds\n",
+	  p->thread_number, p->dp ? "Double" : "Single", p->iterations,
+	  p->div ? "a*b+a/b loops" : "multiply-adds", p->secs);
   console.Write(gxString(line));
   return 0;
 }
@@ -132,7 +159,9 @@ void HelpMessage()
        << "max 1024)" << "\n";
   cout << "     --dp                  Double precision test (defaults to "
        << "single precision)" << "\n";
-  cout << "     --iterations=NUM      Multiply-adds in all: 1m 1g 10g "
+  cout << "     --div                 The c/flops test: a*b + a/b (3 FLOPs, "
+       << "with a divide)" << "\n";
+  cout << "     --iterations=NUM      Loop iterations in all: 1m 1g 10g "
        << "(default 1g)" << "\n";
   cout << "\n" << flush;
 }
@@ -141,7 +170,7 @@ int main(int argc, char **argv)
 {
   unsigned long num_threads = 1;
   double iterations = 1e9;
-  int dp = 0;
+  int dp = 0, div = 0;
   for(int i = 1; i < argc; i++) {
     const char *v;
     if(drbench_switch(argv[i], "help", v) || strcmp(argv[i], "-?") == 0) {
@@ -166,6 +195,7 @@ int main(int argc, char **argv)
       }
     }
     else if(drbench_switch(argv[i], "dp", v)) dp = 1;
+    else if(drbench_switch(argv[i], "div", v)) div = 1;
     else if(drbench_switch(argv[i], "verbose", v) ||
 	    drbench_switch(argv[i], "debug", v)) {
       // Accepted for the old command lines
@@ -185,7 +215,9 @@ int main(int argc, char **argv)
   cout << ProgramName << " version " << VersionString << "\n";
   cout << "Host: " << drbench_hostname().c_str() << "\n";
   cout << "Iterations for " << num_threads << " threads = " << per_thread
-       << " each, " << (dp ? "double" : "single") << " precision" << "\n"
+       << " each, " << (dp ? "double" : "single") << " precision, "
+       << (div ? "a*b + a/b (3 FLOPs a loop)" : "multiply-add (2 FLOPs a loop)")
+       << "\n"
        << flush;
 
   FLOPSTestThread t;
@@ -196,6 +228,7 @@ int main(int argc, char **argv)
   for(i = 0; i < num_threads; i++) {
     parms[i].thread_number = (int)i;
     parms[i].dp = dp;
+    parms[i].div = div;
     parms[i].iterations = per_thread;
     parms[i].secs = 0;
     parms[i].result = 0;
@@ -213,7 +246,7 @@ int main(int argc, char **argv)
     delete threads[i];
   }
   double elapsed = drbench_now() - start;
-  double flops = 2.0 * (double)per_thread * num_threads;
+  double flops = (div ? 3.0 : 2.0) * (double)per_thread * num_threads;
   char line[256];
   sprintf(line, "Total elapsed time %.3f seconds, %s", elapsed,
 	  FlopsString(flops / (elapsed > 0 ? elapsed : 1e-9)).c_str());

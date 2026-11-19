@@ -238,8 +238,10 @@ Allow the benchmark ports (TCP 53897, UDP 53897 and 53898) in the host firewalls
 ### flops
 
 ```
-flops [--num-threads=NUM] [--dp] [--iterations=NUM]
+flops [--num-threads=NUM] [--dp] [--div] [--iterations=NUM]
 ```
+
+`--div` runs the formula of the old c/flops program: a multiply, a divide and an add per element (`a*c + a/b`), counted as 3 operations. The old program counted 5, and its loop was removed by the compiler. Code with divisions runs slower than multiply-add, so this mode gives the rate such code gets.
 
 Runs multiply-add chains over a small array that stays in the CPU cache, in single precision (or double with `--dp`). The iterations (default 1g) are split between the threads. It prints MFLOPS or GFLOPS. The rate depends on the compiler and its flags (vector units), so compare machines with the same build.
 
