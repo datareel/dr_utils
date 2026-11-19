@@ -37,6 +37,11 @@ The benchmarks, `sar_cpu_stats` and `dr_report.py` can also send their results t
 
 Use the network tools and benchmarks only on networks and hosts you own or are allowed to test. The scan tools scan one /24 at most.
 
+## Documentation
+
+The full documentation, with every option and command lines for Windows and Linux, is in [docs/](docs/README.md):
+[building and installing](docs/install.md), [file tools](docs/file-tools.md), [network tools](docs/network-tools.md), [benchmarks](docs/benchmarks.md), [sar CPU statistics](docs/sar-cpu-stats.md), [plots, reports and watch scripts](docs/plots-and-reports.md), [dashboard hooks](docs/dashboard-hooks.md) and a [quick reference](docs/quick-reference.md).
+
 ## License
 
 GNU Lesser General Public License version 3 or later, the same as DataReel 6.4.2 and later. See [LICENSE](LICENSE). Each file says which original program it is based on.
