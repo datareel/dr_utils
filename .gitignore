@@ -25,6 +25,7 @@ benchmarks/*/mcserv
 benchmarks/*/mctest
 benchmarks/*/flops
 system_stats/*/sar_cpu_stats
+system_stats/*/sar_stats
 benchmarks/*/*.dat
 benchmarks/*/*.btx
 bin/
