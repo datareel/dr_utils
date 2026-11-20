@@ -145,19 +145,19 @@ const SectionDef SectionDefs[] = {
 // ----------------------------------------------------------- //
 struct Metric {
   unsigned long n;
-  double sum, min, max;
-  string min_when, max_when;
-  Metric() : n(0), sum(0), min(0), max(0) { }
+  double sum, lo, hi;
+  string lo_when, hi_when;
+  Metric() : n(0), sum(0), lo(0), hi(0) { }
   void Add(double v, const string &when) {
-    if(n == 0 || v < min) { min = v; min_when = when; }
-    if(n == 0 || v > max) { max = v; max_when = when; }
+    if(n == 0 || v < lo) { lo = v; lo_when = when; }
+    if(n == 0 || v > hi) { hi = v; hi_when = when; }
     sum += v;
     n++;
   }
   void Merge(const Metric &o) {
     if(o.n == 0) return;
-    if(n == 0 || o.min < min) { min = o.min; min_when = o.min_when; }
-    if(n == 0 || o.max > max) { max = o.max; max_when = o.max_when; }
+    if(n == 0 || o.lo < lo) { lo = o.lo; lo_when = o.lo_when; }
+    if(n == 0 || o.hi > hi) { hi = o.hi; hi_when = o.hi_when; }
     sum += o.sum;
     n += o.n;
   }
@@ -618,8 +618,8 @@ void PrintSection(Section &s)
       if(it == ms.end() || it->second.n == 0) continue;
       Metric &x = it->second;
       sprintf(buf, "  %-14s %12s %12s %12s  %s", s.metrics[m].c_str(),
-	      Num(x.Avg()).c_str(), Num(x.min).c_str(), Num(x.max).c_str(),
-	      x.max == x.min ? "-" : x.max_when.c_str());
+	      Num(x.Avg()).c_str(), Num(x.lo).c_str(), Num(x.hi).c_str(),
+	      x.hi == x.lo ? "-" : x.hi_when.c_str());
       cout << buf << "\n";
     }
   }
@@ -671,8 +671,8 @@ void PrintSection(Section &s)
 	map<string, Metric> &ms = s.stats[rows[i]];
 	map<string, Metric>::iterator it = ms.find(s.metrics[m]);
 	if(it == ms.end() || it->second.n == 0) continue;
-	if(!found || it->second.max > best) {
-	  best = it->second.max; who = rows[i]; when = it->second.max_when;
+	if(!found || it->second.hi > best) {
+	  best = it->second.hi; who = rows[i]; when = it->second.hi_when;
 	  found = 1;
 	}
       }
@@ -747,7 +747,7 @@ int HookFinish(int nfiles, int good)
 	Metric &x = s.stats[main][s.metrics[m]];
 	if(x.n == 0) continue;
 	lines.Value((base + "_avg").c_str(), Num(x.Avg()).c_str());
-	lines.Value((base + "_max").c_str(), Num(x.max).c_str());
+	lines.Value((base + "_max").c_str(), Num(x.hi).c_str());
       }
       else {
 	Metric best;
@@ -755,7 +755,7 @@ int HookFinish(int nfiles, int good)
 	  best.Merge(s.stats[s.items[k]][s.metrics[m]]);
 	}
 	if(best.n == 0) continue;
-	lines.Value((base + "_max").c_str(), Num(best.max).c_str());
+	lines.Value((base + "_max").c_str(), Num(best.hi).c_str());
       }
     }
     lines.Value((ValueName(s.id) + "_items").c_str(), (double)s.items.size());
