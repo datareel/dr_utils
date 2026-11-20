@@ -23,15 +23,18 @@
 # Agent for Linux: hooks/uploads.d/<id>.ini to /etc/drra/uploads.d/.
 # With --sar-cron it also installs bin/sar_cpu_stats and
 # dru_sar_cpu_stats.sh in /usr/local/libexec/dr_utils/ and the daily
-# schedule in /etc/cron.d/dru_sar_cpu_stats. A dry run unless --apply
+# schedule in /etc/cron.d/dru_sar_cpu_stats (CPU use), and with
+# --sar-all-cron sar_stats, dru_sar_stats.sh and /etc/cron.d/dru_sar_stats
+# (every sar section). A dry run unless --apply
 # is given. The DRSM manifests (hooks/drsm/uploads/<id>) go on the
 # monitor host by hand, see hooks/README.md.
 #
-# Usage: sudo hooks/linux/install_hooks.sh [--sar-cron] [--apply] all | <id> ...
+# Usage: sudo hooks/linux/install_hooks.sh [--sar-cron] [--sar-all-cron] [--apply] all | <id> ...
 #   <id> is a hook ID such as dru_cputest, or a program name (cputest)
 #
 # Changes:
 # 11/19/2026: First version.
+# 11/20/2026: --sar-all-cron (sar_stats, every sar section).
 # -----------------------------------------------------------
 set -u
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -41,22 +44,25 @@ UPLOADS_D=/etc/drra/uploads.d
 LIBEXEC=/usr/local/libexec/dr_utils
 APPLY=0
 SAR=0
+SARALL=0
 IDS=()
 for a in "$@"; do
     case "${a}" in
 	--apply) APPLY=1 ;;
 	--sar-cron) SAR=1 ;;
-	-h|--help) sed -n 22,31p "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+	--sar-all-cron) SARALL=1 ;;
+	-h|--help) sed -n 22,33p "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
 	-*) echo "Unknown option ${a}" >&2; exit 2 ;;
 	all) for f in "${INI_DIR}"/dru_*.ini; do IDS+=("$(basename "${f}" .ini)"); done ;;
 	*) id="${a}"; [[ "${id}" == dru_* ]] || id="dru_${id}"; IDS+=("${id}") ;;
     esac
 done
-if [ "${#IDS[@]}" == "0" ] && [ "${SAR}" == "0" ]; then
-    echo "Usage: $0 [--sar-cron] [--apply] all | <id> ...   (hooks: $(cd "${INI_DIR}" && ls dru_*.ini | sed 's/\.ini$//' | tr '\n' ' '))" >&2
+if [ "${#IDS[@]}" == "0" ] && [ "${SAR}" == "0" ] && [ "${SARALL}" == "0" ]; then
+    echo "Usage: $0 [--sar-cron] [--sar-all-cron] [--apply] all | <id> ...   (hooks: $(cd "${INI_DIR}" && ls dru_*.ini | sed 's/\.ini$//' | tr '\n' ' '))" >&2
     exit 2
 fi
 [ "${SAR}" == "1" ] && IDS+=(dru_sar_cpu_stats)
+[ "${SARALL}" == "1" ] && IDS+=(dru_sar_stats)
 
 function run()
 {
@@ -92,19 +98,23 @@ for id in "${IDS[@]}"; do
     fi
 done
 
-if [ "${SAR}" == "1" ]; then
+# The daily sar job: program, script and cron file
+sar_job() { # program
+    local p=$1 sh=dru_$1
     # bin/ of a source build, else the installed program (install_dr_utils.sh)
-    SARPROG="${TOP}/bin/sar_cpu_stats"
     # (sudo's PATH on RHEL has no /usr/local/bin, so look there too)
-    [ -x "${SARPROG}" ] || SARPROG=$(command -v sar_cpu_stats 2>/dev/null || true)
-    [ -n "${SARPROG}" ] || { [ -x /usr/local/bin/sar_cpu_stats ] && SARPROG=/usr/local/bin/sar_cpu_stats; }
-    if [ -z "${SARPROG}" ] || [ ! -x "${SARPROG}" ]; then
-	echo "ERROR - sar_cpu_stats not found: run ./build.sh, or install the binary package with install_dr_utils.sh" >&2
+    local prog="${TOP}/bin/${p}"
+    [ -x "${prog}" ] || prog=$(command -v "${p}" 2>/dev/null || true)
+    [ -n "${prog}" ] || { [ -x "/usr/local/bin/${p}" ] && prog="/usr/local/bin/${p}"; }
+    if [ -z "${prog}" ] || [ ! -x "${prog}" ]; then
+	echo "ERROR - ${p} not found: run ./build.sh, or install the binary package with install_dr_utils.sh" >&2
 	exit 1
     fi
     command -v sar > /dev/null || echo "WARNING - sar is not installed (sysstat)"
-    run install -D -o root -g root -m 0755 "${SARPROG}" "${LIBEXEC}/sar_cpu_stats"
-    run install -D -o root -g root -m 0755 "${HERE}/dru_sar_cpu_stats.sh" "${LIBEXEC}/dru_sar_cpu_stats.sh"
-    run install -o root -g root -m 0644 "${HERE}/dru_sar_cpu_stats.cron" /etc/cron.d/dru_sar_cpu_stats
-fi
+    run install -D -o root -g root -m 0755 "${prog}" "${LIBEXEC}/${p}"
+    run install -D -o root -g root -m 0755 "${HERE}/${sh}.sh" "${LIBEXEC}/${sh}.sh"
+    run install -o root -g root -m 0644 "${HERE}/${sh}.cron" "/etc/cron.d/${sh}"
+}
+[ "${SAR}" == "1" ] && sar_job sar_cpu_stats
+[ "${SARALL}" == "1" ] && sar_job sar_stats
 echo "DRSM manifests for the monitor host: ${TOP}/hooks/drsm/uploads/<id>"

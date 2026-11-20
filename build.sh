@@ -27,7 +27,7 @@ if [ -z "${CXXFLAGS:-}" ]; then
   export CXXFLAGS
 fi
 TOOLS="tools/file_hours tools/file_purge tools/filetimes tools/internet-test tools/pingscan tools/dnsscan tools/portscan tools/netpscan tools/arpscan tools/getmac"
-TOOLS="$TOOLS benchmarks/cputest benchmarks/disktest benchmarks/memtest benchmarks/tcpserv benchmarks/tcptest benchmarks/udpserv benchmarks/udptest benchmarks/mcserv benchmarks/mctest benchmarks/flops system_stats/sar_cpu_stats"
+TOOLS="$TOOLS benchmarks/cputest benchmarks/disktest benchmarks/memtest benchmarks/tcpserv benchmarks/tcptest benchmarks/udpserv benchmarks/udptest benchmarks/mcserv benchmarks/mctest benchmarks/flops system_stats/sar_cpu_stats system_stats/sar_stats"
 fail=0
 mkdir -p "$TOP/bin"
 for dir in $TOOLS; do

@@ -50,8 +50,8 @@ REPO=$(cd "$(dirname "$0")/.." && pwd)
 V=$(git -C "${REPO}" show "${COMMIT}:version.txt" | tr -d '[:space:]')
 VU=${V//./_}
 PROGS="file_hours file_purge filetimes internet-test pingscan dnsscan portscan netpscan arpscan getmac
-cputest disktest memtest tcpserv tcptest udpserv udptest mcserv mctest flops sar_cpu_stats"
-SCRIPTS_PY="benchmarks/plot/dr_plot.py benchmarks/plot/dr_report.py"
+cputest disktest memtest tcpserv tcptest udpserv udptest mcserv mctest flops sar_cpu_stats sar_stats"
+SCRIPTS_PY="benchmarks/plot/dr_plot.py benchmarks/plot/dr_report.py benchmarks/plot/dr_sar.py"
 SCRIPTS_SH="benchmarks/scripts/watch_system.sh benchmarks/scripts/watch_mem.sh benchmarks/scripts/watch_mem_usage.sh"
 mkdir -p "${OUT}"
 OUT=$(cd "${OUT}" && pwd)

@@ -35,7 +35,7 @@ function FreePort {
 }
 
 foreach ($t in 'file_hours','file_purge','filetimes','internet-test','pingscan','dnsscan','portscan','netpscan','arpscan','getmac',
-             'cputest','disktest','memtest','tcpserv','tcptest','udpserv','udptest','mcserv','mctest','flops','sar_cpu_stats') {
+             'cputest','disktest','memtest','tcpserv','tcptest','udpserv','udptest','mcserv','mctest','flops','sar_cpu_stats','sar_stats') {
   if (-not (Test-Path (Join-Path $Bin "$t.exe"))) { Write-Output "$Bin\$t.exe is missing: run build.cmd first"; exit 2 }
 }
 
@@ -180,6 +180,13 @@ CheckRc 'sar gap' 0 'sar_cpu_stats' @("$Sar\sar_gap.txt"); Has 'gap listed' 'gap
 CheckRc 'sar steal spike' 0 'sar_cpu_stats' @("$Sar\sar_steal_spike.txt"); Has '241 flagged' 'steal 241.45'; Has 'day stops' 'gap: samples stop at 2018-09-24 00:10:01'
 CheckRc 'sar --alarm' 3 'sar_cpu_stats' @('--alarm',"$Sar\sar_steal_spike.txt")
 CheckRc 'sar csv' 0 'sar_cpu_stats' @('--csv','--all-cpus',"$Sar\sar_rhel7_ampm.txt"); Has 'csv row' 'rhel7-2.example.com,2018-09-30 00:10:01,all,0.33,0.00,0.24,0.25,0.00,0.00,0.00,0.00,0.00,99.19,ok'
+Write-Output '--- sar_stats (every sar section)'
+CheckRc 'sar_stats RHEL 10 list' 0 'sar_stats' @('--list',"$Sar\sar_A_rhel10.txt"); Has 'rhel10 35 sections' 'samples every 2 seconds, 35 sections'; Has 'rhel10 disks' '(?m)^  disk +-d +13 +14 +Block devices'
+CheckRc 'sar_stats RHEL 10 summary' 0 'sar_stats' @("$Sar\sar_A_rhel10.txt"); Has 'cpu idle' '(?m)^  %idle +70\.22 +58\.07 +80\.83  2026-11-20 22:45:55'; Has 'disk highest' '(?m)^  wkB/s +40374\.50  sda at 2026-11-20 22:45:45'
+CheckRc 'sar_stats RHEL 5' 0 'sar_stats' @('--list',"$Sar\sar_A_rhel5.txt"); Has 'rhel5 pcsw' '(?m)^  pcsw +-w +1 +22 '
+CheckRc 'sar_stats RHEL 7' 0 'sar_stats' @('--list',"$Sar\sar_A_rhel7.txt"); Has 'rhel7 sections' '18 sections'
+CheckRc 'sar_stats --csv' 0 'sar_stats' @('--csv','--section=mem',"$Sar\sar_A_rhel10.txt"); Has 'csv row' 'node1.example.com,2026-11-20 22:45:31,mem,,kbmemfree,6577840'
+CheckRc 'sar_stats missing file' 1 'sar_stats' @("$Sar\none.txt")
 
 Write-Output '--- dashboard hooks (--drsm, --submit with a stand-in agent)'
 # A stand-in for drra_svc.exe: records its arguments and a copy of the file
@@ -221,6 +228,8 @@ CheckRc '--now without --submit' 1 'flops' @('--now')
 CheckRc 'sar_cpu_stats --submit' 0 'sar_cpu_stats' @('--submit',"--drra=$Fake","$Sar\sar_rhel10.txt")
 $script:Out = Get-Content "$Work\drra.payload" -Raw
 Has 'sar iowait spikes value' '(?m)^DETAIL iowait_spikes=4'; Has 'sar table row' '(?m)^UPLOAD row\|sar_rhel10.txt\|'
+CheckRc 'sar_stats --drsm' 0 'sar_stats' @("--drsm=$Work\sarall.lines","$Sar\sar_A_rhel10.txt")
+$script:Out = Get-Content "$Work\sarall.lines" -Raw; Has 'sar_stats cpu value' '(?m)^DETAIL cpu_pct_idle_avg=70\.22'; Has 'sar_stats table' '(?m)^UPLOAD row\|mem\|-r\|Memory\|1\|14\|'
 Write-Output '--- dashboard hooks: file and network tools'
 SetAge "$Work\h3.txt" ([TimeSpan]::FromHours(3))
 SetAge "$Work\h0.txt" ([TimeSpan]::FromMinutes(1))

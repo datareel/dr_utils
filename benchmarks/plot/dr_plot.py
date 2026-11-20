@@ -57,6 +57,9 @@ import datetime
 import os
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import dr_sar  # noqa: E402
+
 DISK_SERIES = [('write_time', 'Write', 'tab:blue'),
                ('read_time', 'Read', 'tab:green'),
                ('remove_time', 'Delete', 'tab:red'),
@@ -109,12 +112,14 @@ def read_kind(path):
         return 'bench', (dict(cfg['BENCHMARK']), host)
     if head.startswith('host,time,cpu,'):
         return 'sar', None
+    if dr_sar.is_sar_all(head):
+        return 'sarall', None
     first = head.splitlines()[0] if head else ''
     parts = first.split()
     if len(parts) == 3 and parts[2].isdigit() and parts[0].count('-') == 2:
         return 'mem', None
-    raise PlotError(path + ' is not a dr_utils benchmark, sar_cpu_stats --csv '
-                    'or watch_mem_usage.sh file')
+    raise PlotError(path + ' is not a dr_utils benchmark, sar_cpu_stats --csv, '
+                    'sar_stats --csv or watch_mem_usage.sh file')
 
 
 def host_title(host, default):
@@ -325,13 +330,66 @@ def make_figure(plt, kind, pairs, averages=False, cpu='all'):
     return plt.gcf()
 
 
+def split_list(values):
+    out = []
+    for v in values or []:
+        out.extend(x for x in v.split(',') if x)
+    return out
+
+
+def plot_sar_all(plt, args):
+    """Every section of sar_stats --csv files: a chart per section and item"""
+    sections = split_list(args.section)
+    items = split_list(args.item)
+    data = dr_sar.read(args.files, sections or None, items or None)
+    if not data:
+        raise PlotError('no sar values in the files (check --section and --item)')
+    charts = dr_sar.figures(plt, data, args.items, bool(items), sections)
+    out = args.out
+    count = 0
+    if out and out.lower().endswith('.pdf'):
+        from matplotlib.backends.backend_pdf import PdfPages
+        with PdfPages(out) as pdf:
+            for host, sec, item, fig in charts:
+                pdf.savefig(fig)
+                plt.close(fig)
+                count += 1
+        print('Plot file = %s (%d pages)' % (out, count))
+    elif out:
+        base, ext = os.path.splitext(out)
+        for host, sec, item, fig in charts:
+            name = '%s_%s%s%s' % (base, sec, '_' + safe(item) if item else '', ext or '.png')
+            fig.savefig(name, dpi=args.dpi, bbox_inches='tight', pad_inches=0.1)
+            plt.close(fig)
+            print('Plot file = ' + name)
+            count += 1
+    else:
+        figs = list(charts)
+        count = len(figs)
+        plt.show()
+    if count == 0:
+        raise PlotError('no charts: no values for those sections and items')
+    return 0
+
+
+def safe(name):
+    return ''.join(c if c.isalnum() or c in '-.' else '_' for c in name)
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description='Plot dr_utils benchmark and system stats files')
     ap.add_argument('files', nargs='+')
-    ap.add_argument('-o', '--out', help='write this PNG file instead of showing the plot')
+    ap.add_argument('-o', '--out', help='write this PNG file instead of showing the plot '
+                    '(sar_stats CSV: a .pdf gets one page per chart, a .png one file per chart)')
     ap.add_argument('--averages', action='store_true',
                     help='disktest: milliseconds per key instead of seconds per 10%% of the keys')
     ap.add_argument('--cpu', default='all', help='sar CSV: the CPU to plot (default all)')
+    ap.add_argument('--section', action='append',
+                    help='sar_stats CSV: only these sections (ids, comma separated: cpu,mem,disk)')
+    ap.add_argument('--item', action='append',
+                    help='sar_stats CSV: only these items (all, 0, eth0, sda ...): every one is drawn')
+    ap.add_argument('--items', type=int, default=6,
+                    help='sar_stats CSV: the busiest items drawn per section (default 6)')
     ap.add_argument('--dpi', type=int, default=100)
     args = ap.parse_args(argv)
 
@@ -341,6 +399,8 @@ def main(argv=None):
         if args.out:
             matplotlib.use('Agg')
         import matplotlib.pyplot as plt
+        if kind == 'sarall':
+            return plot_sar_all(plt, args)
         make_figure(plt, kind, pairs, args.averages, args.cpu)
         if args.out:
             plt.savefig(args.out, dpi=args.dpi, bbox_inches='tight', pad_inches=0.1)

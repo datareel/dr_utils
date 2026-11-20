@@ -1,0 +1,4 @@
+# /etc/cron.d/dru_sar_stats: yesterday's sar report (every section) to the dashboard
+# dr_utils, GNU LGPL 3 or later, see hooks/README.md
+# The agent sends it with its next report (add --now to send right away)
+25 0 * * * root /usr/local/libexec/dr_utils/dru_sar_stats.sh > /dev/null

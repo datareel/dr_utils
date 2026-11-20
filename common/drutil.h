@@ -32,6 +32,7 @@ file_purge, filetimes): the dr_utils release string and a file's age.
 Changes:
 11/18/2026: First version for dr_utils.
 11/19/2026: Version 1.4 (dashboard output).
+11/20/2026: Version 1.5 (sar_stats: every sar section).
 */
 // ----------------------------------------------------------- //
 #ifndef __DR_UTILS_UTIL_HPP__
@@ -45,7 +46,7 @@ Changes:
 #include "futils.h"
 
 // dr_utils release, printed by every tool's help and version output
-#define DR_UTILS_VERSION "1.4"
+#define DR_UTILS_VERSION "1.5"
 
 // File age results
 const int DRUTIL_AGE_OK = 0;

@@ -58,6 +58,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import dr_plot  # noqa: E402
+import dr_sar  # noqa: E402
 
 SAR_FIELDS = ['user', 'nice', 'system', 'iowait', 'steal', 'irq', 'soft', 'idle']
 
@@ -172,6 +173,20 @@ def table(headers, rows, num_cols=()):
     return '\n'.join(out)
 
 
+def table_html(headers, rows, num_cols=()):
+    """table() for rows whose first cell is already HTML (a link)"""
+    out = ['<div class="tablewrap"><table><tr>']
+    out += ['<th>%s</th>' % esc(h) for h in headers]
+    out.append('</tr>')
+    for r in rows:
+        out.append('<tr>' + ''.join(
+            ('<td>%s</td>' % c if i == 0 else
+             '<td class="num">%s</td>' % esc(c) if i in num_cols else '<td>%s</td>' % esc(c))
+            for i, c in enumerate(r)) + '</tr>')
+    out.append('</table></div>')
+    return '\n'.join(out)
+
+
 def sar_stats(path):
     """Per host: samples, bad, average and peak of each field (all-CPU rows)"""
     hosts = {}
@@ -216,6 +231,10 @@ def build(args):
                 hosts.add(data[1].get('host', ''))
     for path, _ in kinds.get('sar', []):
         hosts.update(sar_stats(path).keys())
+    sar_all = {}
+    for path, _ in kinds.get('sarall', []):
+        sar_all[path] = dr_sar.read([path], args.sar_section or None)
+        hosts.update(sar_all[path].keys())
 
     body = []
     nav = []
@@ -287,6 +306,57 @@ def build(args):
             body.append(fig_html(plt, dr_plot.make_figure(plt, 'sar', [(path, data)],
                                                           cpu='all'), 'CPU use ' + path))
 
+    # Every sar section (sar_stats --csv)
+    for path, data in sar_all.items():
+        for host in sorted(data):
+            secs = data[host]
+            anchor = 'sarall-%d' % len(nav)
+            nav.append((anchor, 'sar: %s' % host))
+            body.append('<h2 id="%s">sar report: %s (%s)</h2>' % (
+                anchor, esc(host), esc(os.path.basename(path))))
+            srows = []
+            for sec in secs:
+                times = [t for it in secs[sec].values() for ts, _ in it.values() for t in ts]
+                srows.append(['<a href="#%s-%s">%s</a>' % (anchor, sec, sec),
+                              dr_sar.title(sec), len(secs[sec]),
+                              min(times).strftime('%Y-%m-%d %H:%M'),
+                              max(times).strftime('%Y-%m-%d %H:%M')])
+            body.append(table_html(['Section', 'Title', 'Items', 'First sample', 'Last sample'],
+                                   srows, num_cols=(2,)))
+            for sec in secs:
+                body.append('<h3 id="%s-%s">%s</h3>' % (anchor, sec, esc(dr_sar.title(sec))))
+                main = dr_sar.main_item(secs[sec])
+                if main is not None:
+                    rows = []
+                    for metric, (ts, vs) in secs[sec][main].items():
+                        avg, lo, hi, at = dr_sar.stats(ts, vs)
+                        rows.append([metric, '%.2f' % avg, '%.2f' % lo, '%.2f' % hi,
+                                     at.strftime('%Y-%m-%d %H:%M:%S') if hi != lo else '-'])
+                    body.append(table(['%s' % (main or 'Column'), 'Average', 'Lowest',
+                                       'Highest', 'Highest at'], rows, num_cols=(1, 2, 3)))
+                others = [i for i in secs[sec] if i != main]
+                if others:
+                    metrics = []
+                    for i in others:
+                        for m in secs[sec][i]:
+                            if m not in metrics:
+                                metrics.append(m)
+                    others.sort(key=lambda i: -dr_sar.activity(secs[sec][i]))
+                    rows = []
+                    for i in others[:args.sar_rows]:
+                        cells = [i]
+                        for m in metrics:
+                            tv = secs[sec][i].get(m)
+                            cells.append('%.2f' % (sum(tv[1]) / len(tv[1])) if tv and tv[1] else '-')
+                        rows.append(cells)
+                    body.append('<p>Averages per item, busiest first%s:</p>' % (
+                        ' (%d of %d)' % (args.sar_rows, len(others)) if len(others) > args.sar_rows else ''))
+                    body.append(table(['Item'] + metrics, rows,
+                                      num_cols=tuple(range(1, len(metrics) + 1))))
+                for h, sc, item, fig in dr_sar.figures(plt, {host: {sec: secs[sec]}},
+                                                        args.sar_items):
+                    body.append(fig_html(plt, fig, '%s %s %s' % (host, sec, item)))
+
     # Memory logs
     if kinds.get('mem'):
         nav.append(('mem', 'Memory'))
@@ -355,12 +425,19 @@ def main(argv=None):
     ap.add_argument('--csv', help='also write the summary table as CSV')
     ap.add_argument('--no-runs', action='store_true',
                     help='only the comparison charts, not one chart per run')
+    ap.add_argument('--sar-section', action='append',
+                    help='sar_stats CSV: only these sections (ids, comma separated: cpu,mem,disk)')
+    ap.add_argument('--sar-items', type=int, default=4,
+                    help='sar_stats CSV: charts of the busiest items per section (default 4)')
+    ap.add_argument('--sar-rows', type=int, default=20,
+                    help='sar_stats CSV: items in the per-item table of a section (default 20)')
     ap.add_argument('--submit', nargs='?', const='dru_report', metavar='ID',
                     help='hand the report to the reporting agent, hook ID (default dru_report)')
     ap.add_argument('--now', action='store_true', help='with --submit, the agent sends within seconds')
     ap.add_argument('--drra', help='agent program (default drra, or drra_svc.exe on Windows)')
     ap.add_argument('--drra-config', help='agent settings file, drra -c INI (Linux, for tests)')
     args = ap.parse_args(argv)
+    args.sar_section = [x for v in (args.sar_section or []) for x in v.split(',') if x]
     if args.submit is not None and not re.match(r'^[a-z0-9_]{1,32}$', args.submit):
         ap.error('--submit ID: the hook ID is a-z, 0-9 and _, up to 32 characters')
     if args.now and args.submit is None:

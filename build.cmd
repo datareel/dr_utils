@@ -18,6 +18,7 @@ if not exist "%TOP%bin" mkdir "%TOP%bin"
 for %%t in (file_hours file_purge filetimes internet-test pingscan dnsscan portscan netpscan arpscan getmac) do call :one tools %%t %1
 for %%t in (cputest disktest memtest tcpserv tcptest udpserv udptest mcserv mctest flops) do call :one benchmarks %%t %1
 call :one system_stats sar_cpu_stats %1
+call :one system_stats sar_stats %1
 exit /b %FAIL%
 
 :one

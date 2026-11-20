@@ -29,7 +29,7 @@ has() {
 }
 
 for t in file_hours file_purge filetimes internet-test pingscan dnsscan portscan netpscan arpscan getmac \
-         cputest disktest memtest tcpserv tcptest udpserv udptest mcserv mctest flops sar_cpu_stats; do
+         cputest disktest memtest tcpserv tcptest udpserv udptest mcserv mctest flops sar_cpu_stats sar_stats; do
   if [ ! -x "$BIN/$t" ]; then echo "$BIN/$t is missing: run ./build.sh first" >&2; exit 2; fi
 done
 
@@ -257,6 +257,21 @@ if python3 -c 'import matplotlib' 2>/dev/null; then
   check_rc "dr_report --no-runs" 0 python3 "$RP" -o "$WORK/report2.html" --no-runs "$WORK/report_in"
   check_rc "dr_report missing file" 1 python3 "$RP" -o "$WORK/report3.html" "$WORK/none.dat"
   check_rc "dr_report nothing to report" 1 python3 "$RP" -o "$WORK/report4.html" "$TOP/tests/data/sar"
+  "$BIN/sar_stats" --csv "$TOP/tests/data/sar/sar_A_rhel10.txt" > "$WORK/sarall.csv"
+  check_rc "dr_plot every sar section (PDF)" 0 python3 "$PL" -o "$WORK/sarall.pdf" "$WORK/sarall.csv"
+  has "pdf pages" 'sarall.pdf \([0-9]+ pages\)'
+  if file "$WORK/sarall.pdf" | grep -q 'PDF document'; then ok "PDF file"; else bad "PDF file"; fi
+  rm -f "$WORK"/sarall_*.png
+  check_rc "dr_plot sar sections as PNG" 0 python3 "$PL" --section=cpu,mem --items 2 -o "$WORK/sarall.png" "$WORK/sarall.csv"
+  n=$(ls "$WORK"/sarall_cpu_all.png "$WORK"/sarall_mem.png 2>/dev/null | wc -l)
+  if [ "$n" = 2 ]; then ok "sar PNG per chart"; else bad "sar PNG per chart" "$(ls "$WORK" | grep sarall)"; fi
+  check_rc "dr_plot sar unknown section" 1 python3 "$PL" --section=nosuch -o "$WORK/x.pdf" "$WORK/sarall.csv"
+  mkdir -p "$WORK/report_sar" && cp "$WORK/sarall.csv" "$WORK/report_sar/"
+  check_rc "dr_report every sar section" 0 python3 "$RP" -o "$WORK/report5.html" "$WORK/report_sar"
+  R=$(cat "$WORK/report5.html")
+  for want in 'sar report: node1.example.com' 'CPU utilization \(sar -u, -P ALL\)' 'File systems \(sar -F\)' 'Averages per item, busiest first' 'Network interfaces \(sar -n DEV\)'; do
+    if echo "$R" | grep -q -E -- "$want"; then ok "sar report has $want"; else bad "sar report has $want"; fi
+  done
 else
   bad "python3 matplotlib is needed for the plot tests (python3-matplotlib)"
 fi
@@ -284,6 +299,41 @@ check_rc "sar csv rhel5 empty columns" 0 "$BIN/sar_cpu_stats" --csv "$SAR/sar_rh
 check_rc "sar two files" 0 "$BIN/sar_cpu_stats" "$SAR/sar_rhel5_partial.txt" "$SAR/sar_gap.txt"
 check_rc "sar no CPU data" 1 "$BIN/sar_cpu_stats" "$SAR/README.md"
 check_rc "sar missing file" 1 "$BIN/sar_cpu_stats" "$SAR/none.txt"
+
+echo "--- sar_stats (every sar section)"
+check_rc "sar_stats RHEL 10 list" 0 "$BIN/sar_stats" --list "$SAR/sar_A_rhel10.txt"
+has "rhel10 35 sections" 'samples every 2 seconds, 35 sections'
+for id in cpu pcsw swap paging io mem swpspace huge ktables queue disk net_dev net_edev nfs nfsd sock ip eip icmp eicmp tcp etcp udp sock6 ip6 eip6 icmp6 eicmp6 udp6 softnet cpufreq fan temp usb fs; do
+  if echo "$OUT" | grep -q -E "^  $id "; then ok "rhel10 section $id"; else bad "rhel10 section $id"; fi
+done
+has "rhel10 disks" '^  disk +-d +13 +14 +Block devices'
+has "rhel10 file system" '\[FILESYSTEM\] MBfsfree'
+check_rc "sar_stats RHEL 10 summary" 0 "$BIN/sar_stats" "$SAR/sar_A_rhel10.txt"
+has "cpu all" '^== cpu: CPU utilization \(sar -u, -P ALL\), 9 CPU, 14 samples'
+has "cpu idle" '^  %idle +70\.22 +58\.07 +80\.83  2026-11-20 22:45:55'
+has "per disk" '^  sda +132\.32 +199\.86 +7836\.27'
+has "disk highest" '^  wkB/s +40374\.50  sda at 2026-11-20 22:45:45'
+has "file system" '^== fs: File systems \(sar -F\), 1 FILESYSTEM'
+check_rc "sar_stats RHEL 5 (separate proc/s, cswch/s, INTR, i000/s)" 0 "$BIN/sar_stats" --list "$SAR/sar_A_rhel5.txt"
+has "rhel5 days" 'Days: 2 \(2018-10-01 to 2018-10-02\), samples every 10 minutes, 17 sections'
+has "rhel5 pcsw one sample per time" '^  pcsw +-w +1 +22 '
+has "rhel5 per-CPU interrupts" '^  intr_cpu +-I ALL -P ALL +2 +22 '
+check_rc "sar_stats RHEL 7" 0 "$BIN/sar_stats" --list "$SAR/sar_A_rhel7.txt"
+has "rhel7 sections" '18 sections'; has "rhel7 huge pages" '^  huge +-H +1 +11 '
+check_rc "sar_stats AM/PM times" 0 "$BIN/sar_stats" "$SAR/sar_rhel7_ampm.txt"
+has "ampm 24-hour" '^  %usr +0\.27 +0\.23 +0\.67  2018-09-30 00:30:01'
+check_rc "sar_stats --section" 0 "$BIN/sar_stats" --section=queue,mem "$SAR/sar_A_rhel5.txt"
+has "only queue" '^== queue: Run queue'; if echo "$OUT" | grep -q '^== cpu'; then bad "--section left cpu out"; else ok "--section left cpu out"; fi
+has "constant column" '^  plist-sz +138\.00 +138\.00 +138\.00  -$'
+check_rc "sar_stats --item" 0 "$BIN/sar_stats" --section=cpu --item=all "$SAR/sar_A_rhel7.txt"; has "only all" '1 CPU, 11 samples'
+check_rc "sar_stats --csv" 0 "$BIN/sar_stats" --csv --section=mem "$SAR/sar_A_rhel10.txt"
+has "csv header" '^host,time,section,item,metric,value$'; has "csv row" '^node1.example.com,2026-11-20 22:45:31,mem,,kbmemfree,6577840$'
+printf 'Linux 6.0 (node9.example.com) \t11/20/26 \t_x86_64_\t(2 CPU)\n\n00:00:01     newm/s   other%%\n00:10:01       1.50      20.00\n00:20:01       2.50      40.00\n' > "$WORK/sar_new.txt"
+check_rc "sar_stats unknown section" 0 "$BIN/sar_stats" "$WORK/sar_new.txt"; has "kept by its columns" '^== other_newm_s: newm/s other%'
+has "unknown values" '^  newm/s +2\.00 +1\.50 +2\.50  2026-11-20 00:20:01'
+check_rc "sar_stats no data" 1 "$BIN/sar_stats" "$SAR/README.md"
+check_rc "sar_stats missing file" 1 "$BIN/sar_stats" "$SAR/none.txt"
+check_rc "sar_stats bad switch" 1 "$BIN/sar_stats" --bogus "$SAR/sar_A_rhel5.txt"
 
 echo "--- dashboard hooks (--drsm, --submit with a stand-in agent)"
 # A stand-in for drra: records its arguments and a copy of the file
@@ -378,6 +428,13 @@ for f in "$TOP"/hooks/uploads.d/*.ini; do
   fi
 done
 check_rc "install_hooks.sh dry run" 0 "$TOP/hooks/linux/install_hooks.sh" all; has "dry run" '^Dry run'; has "would install" 'would run: install .*dru_sar_cpu_stats.ini /etc/drra/uploads.d/'
+check_rc "install_hooks.sh --sar-all-cron dry run" 0 "$TOP/hooks/linux/install_hooks.sh" --sar-all-cron
+has "sar_stats job" 'would run: install -D .*/sar_stats /usr/local/libexec/dr_utils/sar_stats'; has "sar_stats cron" 'dru_sar_stats.cron /etc/cron.d/dru_sar_stats'
+check_rc "sar_stats --drsm" 0 "$BIN/sar_stats" --drsm="$WORK/sarall.lines" "$SAR/sar_A_rhel10.txt"
+OUT=$(cat "$WORK/sarall.lines")
+has "sar_stats summary" '^INFO - sar report \(sar_stats [0-9.]+\): 1 file\(s\), 35 sections, host node1.example.com'
+has "sar_stats cpu value" '^DETAIL cpu_pct_idle_avg=70\.22$'; has "sar_stats disk max" '^DETAIL disk_pct_util_max='
+has "sar_stats fs value" '^DETAIL fs_pct_fsused_avg='; has "sar_stats table" '^UPLOAD row\|mem\|-r\|Memory\|1\|14\|'
 
 echo
 echo "$pass passed, $fail failed"
