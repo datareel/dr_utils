@@ -20,8 +20,8 @@ Both installers check the sha256 of every file and are a dry run until you add t
 Linux: the installer picks the build for the host from `/etc/redhat-release`:
 
 ```
-tar xzf dr_utils_1_4_rhel_7_8_9_10_binaries.tar.gz
-cd dr_utils_1_4_rhel_7_8_9_10_binaries
+tar xzf dr_utils_1_5_rhel_7_8_9_10_binaries.tar.gz
+cd dr_utils_1_5_rhel_7_8_9_10_binaries
 ./install_dr_utils.sh                              # what it would do
 ./install_dr_utils.sh --install                    # into ~/bin
 sudo ./install_dr_utils.sh --install --system      # into /usr/local/bin

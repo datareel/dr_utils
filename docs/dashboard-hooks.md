@@ -55,9 +55,9 @@ Every benchmark except the three servers (`tcpserv`, `udpserv`, `mcserv`), every
 Each result also has an INFO line with the main result and settings, and the values `benchmark` (or `program`), `version`, `build` and `collected`. What `cputest --num-threads=2 --drsm=cpu.drsm` writes:
 
 ```
-INFO - CPU Speed Benchmark (cputest 1.4): zlib compress + uncompress rate 40.8762 MB/s, threads=2 buf_size=10000000 repeat=1
+INFO - CPU Speed Benchmark (cputest 1.5): zlib compress + uncompress rate 40.8762 MB/s, threads=2 buf_size=10000000 repeat=1
 DETAIL benchmark=cputest
-DETAIL version=1.4
+DETAIL version=1.5
 DETAIL build=GCC
 DETAIL threads=2
 DETAIL buf_size=10000000

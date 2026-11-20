@@ -63,8 +63,8 @@
 <p>Every package has the scripts (<code>dr_plot.py</code>, <code>dr_report.py</code>, and on Linux the watch scripts), the reporting agent hook files in <code>hooks/</code>, this documentation in <code>docs/</code> (open <code>docs/html/index.html</code>), a <code>README.txt</code> and <code>sha256sum</code> files. The programs are built without OpenSSL (they use no TLS) and need no other libraries than the C and C++ runtime and zlib on Linux; the Windows programs have the C runtime built in.</p>
 <p>Both installers check the sha256 of every file and are a dry run until you add the install switch. Programs already in the target folder are kept as <code>name.backup-YYYYMMDD-HHMMSS</code>.</p>
 <p>Linux: the installer picks the build for the host from <code>/etc/redhat-release</code>:</p>
-<pre><code>tar xzf dr_utils_1_4_rhel_7_8_9_10_binaries.tar.gz
-cd dr_utils_1_4_rhel_7_8_9_10_binaries
+<pre><code>tar xzf dr_utils_1_5_rhel_7_8_9_10_binaries.tar.gz
+cd dr_utils_1_5_rhel_7_8_9_10_binaries
 ./install_dr_utils.sh                              # what it would do
 ./install_dr_utils.sh --install                    # into ~/bin
 sudo ./install_dr_utils.sh --install --system      # into /usr/local/bin

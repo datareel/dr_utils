@@ -7,7 +7,7 @@
 ```
 [BENCHMARK]
 name=cputest
-version=1.4
+version=1.5
 threads=2
 buf_size=1e+07
 repeat=1
