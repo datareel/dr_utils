@@ -70,7 +70,7 @@ for b in rhel7 rhel8 rhel9 rhel10; do
     if ldd "${B}/${b}/portscan" 2>/dev/null | grep -qiE 'libssl|libcrypto'; then echo "ERROR: ${b} links OpenSSL"; exit 1; fi
 done
 if [ -x "${B}/rhel10/cputest" ]; then
-    "${B}/rhel10/cputest" --version | grep -q "cputest version ${V} " || { echo "ERROR: rhel10/cputest is not version ${V}"; exit 1; }
+    "${B}/rhel10/cputest" --version | grep -qE "^cputest version ${V}( |$)" || { echo "ERROR: rhel10/cputest is not version ${V}"; exit 1; }
 fi
 
 common() { # target dir, line end (lf or crlf)
