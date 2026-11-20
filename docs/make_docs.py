@@ -59,6 +59,7 @@ PAGES = [
     ('docs/file-tools.md', 'file-tools.html', 'File tools'),
     ('docs/network-tools.md', 'network-tools.html', 'Network tools'),
     ('docs/benchmarks.md', 'benchmarks.html', 'Benchmarks'),
+    ('docs/sar-stats.md', 'sar-stats.html', 'sar reports (every section)'),
     ('docs/sar-cpu-stats.md', 'sar-cpu-stats.html', 'sar CPU statistics'),
     ('docs/plots-and-reports.md', 'plots-and-reports.html',
      'Plots, reports, watch scripts'),
@@ -271,6 +272,8 @@ FOLDERS = [
      [('plots-and-reports.md', 'Watch scripts (Linux)')]),
     ('system_stats/sar_cpu_stats', 'sar_cpu_stats',
      [('sar-cpu-stats.md', None)]),
+    ('system_stats/sar_stats', 'sar_stats',
+     [('sar-stats.md', None)]),
 ]
 
 # Notes that a copied section needs from the top of its page

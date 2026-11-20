@@ -1,6 +1,6 @@
 # file_hours
 
-Part of dr_utils 1.4. This file is made from [docs/file-tools.md](../../docs/file-tools.md#file_hours) by docs/make_docs.py: edit that page, not this file. All the documentation: [docs/](../../docs/README.md), or the searchable HTML in `docs/html/index.html`.
+Part of dr_utils 1.5. This file is made from [docs/file-tools.md](../../docs/file-tools.md#file_hours) by docs/make_docs.py: edit that page, not this file. All the documentation: [docs/](../../docs/README.md), or the searchable HTML in `docs/html/index.html`.
 
 Says whether a file was last changed `numhours` ago or more.
 

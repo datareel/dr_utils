@@ -1,6 +1,6 @@
 # Watch scripts
 
-Part of dr_utils 1.4. This file is made from [docs/plots-and-reports.md](../../docs/plots-and-reports.md#watch-scripts-linux) by docs/make_docs.py: edit that page, not this file. All the documentation: [docs/](../../docs/README.md), or the searchable HTML in `docs/html/index.html`.
+Part of dr_utils 1.5. This file is made from [docs/plots-and-reports.md](../../docs/plots-and-reports.md#watch-scripts-linux) by docs/make_docs.py: edit that page, not this file. All the documentation: [docs/](../../docs/README.md), or the searchable HTML in `docs/html/index.html`.
 
 In `benchmarks/scripts/`. Run them in a second terminal (or in the background) while a benchmark runs. All three take `-i seconds` (default 1), `-n count` (default 0: until Ctrl-C) and `STATSONLY`.
 

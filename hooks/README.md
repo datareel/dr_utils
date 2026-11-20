@@ -16,6 +16,7 @@ Nothing in the agents or in DRSM changes: this folder only has the hook files fo
 | `udptest` | `dru_udptest` | `total` (MB/s), `loss_max_pct`, `clients`, `rate_limit` | MB/s and % lost per client |
 | `mctest` | `dru_mctest` | `total` (MB/s per receiver), `loss_max_pct`, `receivers` | MB/s and % lost per receiver |
 | `sar_cpu_stats` | `dru_sar_cpu_stats` | `busy_avg`, `<field>_avg` and `<field>_peak` (user, system, iowait, steal ...), `idle_min`, `steal_spikes`, `iowait_spikes`, `gaps`, `bad_samples`, `files_failed` | one row per sar file |
+| `sar_stats` | `dru_sar_stats` | `<section>_<column>_avg` and `_max` of the whole system (`cpu_pct_idle_avg`, `mem_pct_memused_max`, `queue_ldavg_1_max` ...), `<section>_<column>_max` over the items of the other sections (`disk_pct_util_max`, `net_dev_rxkb_s_max`, `fs_pct_fsused_max` ...), `<section>_items`, `sections`, `files_failed` | one row per sar section |
 | `file_hours` | `dru_file_hours` | `stale` (1 when the file is the limit old or older), `age_hours`, `limit_hours`, `result` (YES, NOT, ERR), `file` | the file |
 | `file_purge` | `dru_file_purge` | `purged`, `would_purge` (`-n`), `kept`, `listed` (`-l`), `errors`, `files`, `mode`, `dry_run` | a row per file: result and details |
 | `filetimes` | `dru_filetimes` | `files`, `errors`, `newest_file`, `newest_age_hours`, `oldest_file`, `oldest_age_hours` | modification time and age per file |
@@ -70,6 +71,8 @@ portscan -n www.example.com 22,80,443 --submit
 
 `hooks/linux/dru_sar_cpu_stats.sh` makes the sar text report of one day (yesterday by default) with `LC_ALL=C sar -u -f /var/log/sa/saDD` and runs `sar_cpu_stats --submit` on it. `--print` shows the lines instead of submitting them, `--day=YYYY-MM-DD` picks another day, and other options go to `sar_cpu_stats` (for example `--iowait=30`).
 
+`hooks/linux/dru_sar_stats.sh` does the same with the whole report (`sar -A`) and `sar_stats --submit` (hook `dru_sar_stats`), and `sudo hooks/linux/install_hooks.sh --sar-all-cron --apply` installs it with `/etc/cron.d/dru_sar_stats` (00:25 every day). Both jobs can run.
+
 `sudo hooks/linux/install_hooks.sh --sar-cron --apply` installs `bin/sar_cpu_stats` and the script in `/usr/local/libexec/dr_utils/`, the hook file, and `/etc/cron.d/dru_sar_cpu_stats` (00:20 every day). The manifest warns when the data is more than 30 hours old, so a stopped cron job shows.
 
 ## Alert rules
@@ -119,4 +122,5 @@ The benchmarks have no age check by default (they run by hand); set `MAX_AGE_HOU
 | `drsm/uploads/<id>/` | DRSM manifests: `plugin.conf` and `probe.sh` (which sources DRSM's `upload_probe.sh`) |
 | `linux/install_hooks.sh` | Installs hook files (and the sar cron job) on a Linux agent host, dry run by default |
 | `linux/dru_sar_cpu_stats.sh`, `.cron` | Daily sar CPU use to the dashboard |
+| `linux/dru_sar_stats.sh`, `.cron` | Daily sar report, every section, to the dashboard |
 | `windows/install_hooks.ps1` | Installs hook files on a Windows agent host, dry run by default |

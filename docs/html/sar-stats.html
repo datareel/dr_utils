@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sar reports (every section) - dr_utils 1.5</title>
+<link rel="stylesheet" href="dr_utils.css">
+</head>
+<body>
+<div class="wrap">
+<nav>
+<p class="title"><a href="index.html">dr_utils 1.5</a></p>
+<input id="q" type="search" placeholder="Search the docs ( / )" aria-label="Search the docs">
+<button id="menu-btn" type="button">Pages</button>
+<ul>
+<li><a href="index.html">Overview</a></li>
+<li><a href="install.html">Building and installing</a></li>
+<li><a href="file-tools.html">File tools</a></li>
+<li><a href="network-tools.html">Network tools</a></li>
+<li><a href="benchmarks.html">Benchmarks</a></li>
+<li><a href="sar-stats.html" class="cur">sar reports (every section)</a></li>
+<li><a href="sar-cpu-stats.html">sar CPU statistics</a></li>
+<li><a href="plots-and-reports.html">Plots, reports, watch scripts</a></li>
+<li><a href="dashboard-hooks.html">Dashboard hooks</a></li>
+<li><a href="hooks.html">Hook files reference</a></li>
+<li><a href="quick-reference.html">Quick reference</a></li>
+</ul>
+<div class="theme"><button id="theme-btn" type="button">Light / dark</button></div>
+</nav>
+<main>
+<div id="results"></div>
+<div id="content">
+<h1 id="sar_stats">sar_stats</h1>
+<p>Reads every section of sar text reports, the way the old kSar tool did: CPU, memory, swap, paging, I/O, block devices, network interfaces, sockets, IP, ICMP, TCP and UDP, NFS, run queue and load, interrupts, power and file systems. For each section it prints the average, lowest and highest value of every column, with the time of the highest, for the whole system and for each item (each CPU, disk, network interface, file system ...). With <code>--csv</code> it writes every value, and <code>dr_plot.py</code> and <code>dr_report.py</code> chart every section from that file.</p>
+<p><code>sar_cpu_stats</code> stays for CPU use with steal and iowait spike alarms; <code>sar_stats</code> is for the whole report.</p>
+<pre><code>sar_stats [args] sar_file [sar_file ...]
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--list</code></td>
+<td>list the sections found: id, sar option, items, samples, title and columns</td>
+</tr>
+<tr>
+<td><code>--csv</code></td>
+<td>every value as CSV: <code>host,time,section,item,metric,value</code></td>
+</tr>
+<tr>
+<td><code>--section=ID[,ID]</code></td>
+<td>only these sections (ids from <code>--list</code>: <code>cpu</code>, <code>mem</code>, <code>disk</code>, <code>net_dev</code> ...)</td>
+</tr>
+<tr>
+<td><code>--item=NAME[,NAME]</code></td>
+<td>only these items: <code>all</code>, <code>0</code>, <code>eth0</code>, <code>sda</code>, <code>dev8-0</code>, a file system ...</td>
+</tr>
+<tr>
+<td><code>--items=N</code></td>
+<td>items listed per section in the summary (default 20); <code>--csv</code> always has every item</td>
+</tr>
+<tr>
+<td><code>--help</code>, <code>--version</code></td>
+<td>usage, version</td>
+</tr>
+<tr>
+<td><code>--drsm</code>, <code>--submit</code>, <code>--now</code>, <code>--drra</code>, <code>--drra-config</code></td>
+<td>dashboard output, see <a href="dashboard-hooks.html">Dashboard</a></td>
+</tr>
+</tbody>
+</table>
+<p>Exit status: 0; 1 on an error or when a file has no sar samples.</p>
+<h2 id="input">Input</h2>
+<p>Any sar text report from RHEL 5 to RHEL 10 sysstat (and other distributions): one day or several days in a file, 12- or 24-hour times, LINUX RESTART lines. The full report is the most useful:</p>
+<pre><code>LC_ALL=C sar -A -f /var/log/sa/sa19 &gt; sar_19.txt                  # every section of one day
+LC_ALL=C sar -A -f /var/log/sa/sa20261119 &gt; sar_19.txt            # sysstat set to long file names
+for d in 17 18 19; do LC_ALL=C sar -A -f /var/log/sa/sa$d; done &gt; sar_3days.txt
+LC_ALL=C sar -d -p -f /var/log/sa/sa19 &gt; disks_19.txt             # only block devices, with sda names
+</code></pre>
+<p><code>LC_ALL=C</code> gives the dates and times the program reads. On Debian and Ubuntu the files are in <code>/var/log/sysstat/</code>. Newer sysstat collects some sections only when <code>sadc</code> is told to (<code>-S XALL</code> in <code>SADC_OPTIONS</code> of <code>/etc/sysconfig/sysstat</code>): per-CPU interrupts, file systems, power (fans, temperatures), IPv6 and PSI.</p>
+<p>The reports are plain text, so the Windows build reads reports copied from Linux hosts the same way.</p>
+<h2 id="sections">Sections</h2>
+<p>Sections are found by their column names, so a sysstat version with new columns or a new section still reads; a section this program does not know is kept under its first column name (<code>other_&lt;column&gt;</code>).</p>
+<table>
+<thead>
+<tr>
+<th>id</th>
+<th>Title</th>
+<th>sar option</th>
+<th>Items</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cpu</code></td>
+<td>CPU utilization</td>
+<td><code>-u</code>, <code>-P ALL</code></td>
+<td>CPU (<code>all</code>, <code>0</code>, <code>1</code> ...)</td>
+</tr>
+<tr>
+<td><code>pcsw</code></td>
+<td>Task creation and context switches</td>
+<td><code>-w</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>intr</code></td>
+<td>Interrupts</td>
+<td><code>-I</code></td>
+<td>INTR (<code>sum</code>, numbers)</td>
+</tr>
+<tr>
+<td><code>intr_cpu</code></td>
+<td>Interrupts per CPU</td>
+<td><code>-I ALL -P ALL</code></td>
+<td>CPU</td>
+</tr>
+<tr>
+<td><code>swap</code></td>
+<td>Swapping</td>
+<td><code>-W</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>paging</code></td>
+<td>Paging</td>
+<td><code>-B</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>io</code></td>
+<td>I/O and transfer rates</td>
+<td><code>-b</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>memstat</code></td>
+<td>Memory page changes</td>
+<td><code>-R</code> (older sysstat)</td>
+<td></td>
+</tr>
+<tr>
+<td><code>mem</code></td>
+<td>Memory</td>
+<td><code>-r</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>swpspace</code></td>
+<td>Swap space</td>
+<td><code>-S</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>huge</code></td>
+<td>Huge pages</td>
+<td><code>-H</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>ktables</code></td>
+<td>Kernel tables</td>
+<td><code>-v</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>queue</code></td>
+<td>Run queue and load average</td>
+<td><code>-q</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>psi_cpu</code>, <code>psi_io</code>, <code>psi_mem</code></td>
+<td>CPU, I/O and memory pressure (PSI)</td>
+<td><code>-q CPU</code>, <code>-q IO</code>, <code>-q MEM</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>tty</code></td>
+<td>Serial lines</td>
+<td><code>-y</code></td>
+<td>TTY</td>
+</tr>
+<tr>
+<td><code>disk</code></td>
+<td>Block devices</td>
+<td><code>-d</code></td>
+<td>DEV</td>
+</tr>
+<tr>
+<td><code>net_dev</code>, <code>net_edev</code></td>
+<td>Network interfaces, interface errors</td>
+<td><code>-n DEV</code>, <code>-n EDEV</code></td>
+<td>IFACE</td>
+</tr>
+<tr>
+<td><code>nfs</code>, <code>nfsd</code></td>
+<td>NFS client, NFS server</td>
+<td><code>-n NFS</code>, <code>-n NFSD</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>sock</code>, <code>sock6</code></td>
+<td>Sockets (IPv4, IPv6)</td>
+<td><code>-n SOCK</code>, <code>-n SOCK6</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>ip</code>, <code>eip</code>, <code>ip6</code>, <code>eip6</code></td>
+<td>IPv4 and IPv6 traffic and errors</td>
+<td><code>-n IP</code>, <code>-n EIP</code>, <code>-n IP6</code>, <code>-n EIP6</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>icmp</code>, <code>eicmp</code>, <code>icmp6</code>, <code>eicmp6</code></td>
+<td>ICMPv4 and ICMPv6 traffic and errors</td>
+<td><code>-n ICMP</code> ...</td>
+<td></td>
+</tr>
+<tr>
+<td><code>tcp</code>, <code>etcp</code></td>
+<td>TCPv4 traffic and errors</td>
+<td><code>-n TCP</code>, <code>-n ETCP</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>udp</code>, <code>udp6</code></td>
+<td>UDPv4, UDPv6 traffic</td>
+<td><code>-n UDP</code>, <code>-n UDP6</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>softnet</code></td>
+<td>Software network processing</td>
+<td><code>-n SOFT</code></td>
+<td>CPU</td>
+</tr>
+<tr>
+<td><code>fchost</code></td>
+<td>Fibre Channel hosts</td>
+<td><code>-n FC</code></td>
+<td>FCHOST</td>
+</tr>
+<tr>
+<td><code>cpufreq</code>, <code>cpuwfreq</code></td>
+<td>CPU frequency, weighted frequency</td>
+<td><code>-m CPU</code>, <code>-m FREQ</code></td>
+<td>CPU</td>
+</tr>
+<tr>
+<td><code>fan</code>, <code>temp</code>, <code>in</code></td>
+<td>Fans, temperatures, voltage inputs</td>
+<td><code>-m FAN</code>, <code>-m TEMP</code>, <code>-m IN</code></td>
+<td>sensor and device</td>
+</tr>
+<tr>
+<td><code>usb</code></td>
+<td>USB devices</td>
+<td><code>-m USB</code></td>
+<td>BUS</td>
+</tr>
+<tr>
+<td><code>fs</code></td>
+<td>File systems</td>
+<td><code>-F</code></td>
+<td>FILESYSTEM</td>
+</tr>
+</tbody>
+</table>
+<h2 id="summary-output">Summary output</h2>
+<p>For each section: the whole-system item (CPU <code>all</code>, interrupts <code>sum</code>, or the only item) with the average, lowest and highest value of each column and the time of the highest; then, for sections with items, the average of each column per item and the highest value of each column with its item and time. A column that never changed has <code>-</code> for the time.</p>
+<pre><code>== cpu: CPU utilization (sar -u, -P ALL), 9 CPU, 14 samples
+  CPU all:
+  column            average       lowest      highest  highest at
+  %usr                  10.76         3.49        21.66  2026-11-20 22:45:37
+  %iowait                0.68         0.00         3.96  2026-11-20 22:45:51
+  %idle                 70.22        58.07        80.83  2026-11-20 22:45:55
+  averages per CPU:
+  CPU                     %usr       %nice        %sys     %iowait ...
+  0                       6.51       17.48        3.07        0.18 ...
+  highest:
+  %usr                  83.92  1 at 2026-11-20 22:45:37
+
+== disk: Block devices (sar -d), 13 DEV, 14 samples
+  averages per DEV:
+  DEV                      tps       rkB/s       wkB/s ...       %util
+  sda                   132.32      199.86     7836.27 ...        4.22
+  highest:
+  wkB/s              40374.50  sda at 2026-11-20 22:45:45
+</code></pre>
+<p>(Some rows are left out above.)</p>
+<h2 id="csv-output">CSV output</h2>
+<p>One row per value: <code>host,time,section,item,metric,value</code>. The item is empty for sections without items. Times are <code>YYYY-MM-DD HH:MM:SS</code> (24-hour).</p>
+<pre><code>host,time,section,item,metric,value
+node1.example.com,2026-11-20 22:45:31,cpu,all,%usr,18.02
+node1.example.com,2026-11-20 22:45:31,mem,,kbmemfree,6577840
+node1.example.com,2026-11-20 22:45:31,disk,sda,%util,1.45
+</code></pre>
+<p>A month of 10-minute samples of a 4-CPU host with a few disks is about a million rows (50 MB).</p>
+<h2 id="charts-and-reports">Charts and reports</h2>
+<pre><code>sar_stats --csv sar_19.txt &gt; host1_19.csv
+dr_plot.py -o host1_19.pdf host1_19.csv                        # a PDF page per section and item
+dr_plot.py --section=cpu,mem,disk -o host1.png host1_19.csv    # host1_cpu_all.png, host1_mem.png, host1_disk_sda.png ...
+dr_plot.py --section=net_dev --item=eth0 -o eth0.png host1_19.csv
+dr_report.py -o host1_19.html --title &quot;host1 2026-11-19&quot; host1_19.csv
+</code></pre>
+<p>Each chart splits the columns of a section by unit (percent, per second, kB and MB sizes, load, other counts) into stacked panels; CPU use is drawn stacked like kSar (user, nice, system, iowait, steal, irq, soft). For sections with items, the whole-system item and the busiest items are drawn (<code>--items</code>, default 6 in dr_plot.py and 4 in dr_report.py); idle items (all zeros) are left out; <code>--item</code> draws the items named. See <a href="plots-and-reports.html">Plots and reports</a>.</p>
+<h2 id="examples">Examples</h2>
+<p>Linux:</p>
+<pre><code>LC_ALL=C sar -A -f /var/log/sa/sa$(date -d yesterday +%d) &gt; sar_yesterday.txt
+sar_stats --list sar_yesterday.txt
+sar_stats sar_yesterday.txt | less
+sar_stats --section=mem,swpspace,paging sar_yesterday.txt
+sar_stats --section=disk --item=sda,dm-0 sar_yesterday.txt
+sar_stats --csv sar_yesterday.txt &gt; host1.csv &amp;&amp; dr_report.py -o host1.html host1.csv
+sar_stats --submit --now sar_yesterday.txt                     # to the dashboard
+</code></pre>
+<p>A month of reports from a host, then one report:</p>
+<pre><code>for f in /var/log/sa/sa[0-9][0-9]; do LC_ALL=C sar -A -f $f; done &gt; sar_month.txt
+sar_stats --csv sar_month.txt &gt; month.csv
+dr_report.py -o month.html --title &quot;host1, the last month&quot; month.csv
+</code></pre>
+<p>Windows, with reports copied from Linux hosts:</p>
+<pre><code>sar_stats --list C:\reports\sar\node1_19.txt
+sar_stats --section=cpu,mem,disk C:\reports\sar\node1_19.txt &gt; node1_19_summary.txt
+sar_stats --csv C:\reports\sar\node1_19.txt &gt; node1_19.csv
+py C:\src\dr_utils\benchmarks\plot\dr_plot.py -o node1_19.pdf node1_19.csv
+py C:\src\dr_utils\benchmarks\plot\dr_report.py -o node1_19.html node1_19.csv
+</code></pre>
+<p>Short example reports are in <code>tests/data/sar/</code> (<code>sar_A_rhel5.txt</code>, <code>sar_A_rhel7.txt</code>, <code>sar_A_rhel10.txt</code>).</p>
+<p class="foot">dr_utils 1.5 documentation, GNU LGPL 3 or later. Made from docs/sar-stats.md by docs/make_docs.py.</p>
+</div>
+</main>
+</div>
+<script src="search_index.js"></script>
+<script src="dr_utils.js"></script>
+</body>
+</html>

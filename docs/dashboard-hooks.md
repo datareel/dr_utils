@@ -39,6 +39,7 @@ Every benchmark except the three servers (`tcpserv`, `udpserv`, `mcserv`), every
 | `udptest` | `dru_udptest` | `total` (MB/s), `loss_max_pct`, `clients`, `rate_limit` | MB/s and % lost per client |
 | `mctest` | `dru_mctest` | `total` (MB/s per receiver), `loss_max_pct`, `receivers` | MB/s and % lost per receiver |
 | `sar_cpu_stats` | `dru_sar_cpu_stats` | `busy_avg`, `<field>_avg` and `<field>_peak`, `idle_min`, `steal_spikes`, `iowait_spikes`, `gaps`, `bad_samples`, `files_failed` | one row per sar file |
+| `sar_stats` | `dru_sar_stats` | `<section>_<column>_avg` and `_max` of the whole system (`cpu_pct_idle_avg`, `mem_pct_memused_max`, `queue_ldavg_1_max` ...), `<section>_<column>_max` over the items of the other sections (`disk_pct_util_max`, `net_dev_rxkb_s_max`, `fs_pct_fsused_max` ...), `<section>_items`, `sections`, `files_failed` | one row per sar section |
 | `file_hours` | `dru_file_hours` | `stale` (1 when the file is the limit old or older), `age_hours`, `limit_hours`, `result` (YES, NOT, ERR), `file` | the file |
 | `file_purge` | `dru_file_purge` | `purged`, `would_purge` (`-n`), `kept`, `listed` (`-l`), `errors`, `files`, `mode`, `dry_run` | a row per file: result and details |
 | `filetimes` | `dru_filetimes` | `files`, `errors`, `newest_file`, `newest_age_hours`, `oldest_file`, `oldest_age_hours` | modification time and age per file |
@@ -245,6 +246,22 @@ sudo hooks/linux/install_hooks.sh --sar-cron --apply
 ```
 
 The manifest warns when the data is more than 30 hours old, so a stopped cron job shows.
+
+### Every sar section
+
+`hooks/linux/dru_sar_stats.sh` takes the same options, makes the whole report of the day (`LC_ALL=C sar -A -f /var/log/sa/saDD`) and runs `sar_stats --submit` (hook `dru_sar_stats`). The dashboard shows a row per sar section and keeps values such as `cpu_pct_iowait_max`, `mem_pct_memused_max`, `queue_ldavg_1_max`, `disk_pct_util_max` and `fs_pct_fsused_max` for rules and trends.
+
+```
+hooks/linux/dru_sar_stats.sh --print
+sudo hooks/linux/install_hooks.sh --sar-all-cron                 # dry run
+sudo hooks/linux/install_hooks.sh --sar-all-cron --apply         # /etc/cron.d/dru_sar_stats, 00:25 every day
+```
+
+Limits depend on the host, so set them in its DRSM host file, for example:
+
+```
+uploads_dru_sar_stats_WARN_IF="cpu_pct_iowait_max > 50 or swpspace_pct_swpused_max > 50 or disk_pct_util_max > 90 or fs_pct_fsused_max > 90"
+```
 
 ## Alert rules
 

@@ -1,4 +1,4 @@
-# dr_utils 1.4
+# dr_utils 1.5
 
 Small command line file and network tools for Windows and Linux, built on the [DataReel](https://datareel.com) C++ library, version 6.4.1. They are open source (GNU LGPL 3) versions of tools based on work from 1999 to 2010. DataReel 7.4 does not already have them.
 
@@ -31,16 +31,17 @@ And a system statistics tool:
 
 | Tool | What it does |
 |---|---|
+| `sar_stats` | Reads every section of sar reports (`sar -A`), like kSar: CPU, memory, swap, paging, I/O, disks, network, sockets, NFS, load, interrupts, power and file systems; averages, lows and highs per section and item, CSV, and charts and HTML reports with dr_plot.py and dr_report.py |
 | `sar_cpu_stats` | Reads sar text reports: CPU averages and peaks, steal and iowait spikes, gaps and impossible samples, or every sample as CSV |
 
-The tools, the benchmarks, `sar_cpu_stats` and `dr_report.py` can also send their results to the DataReel System Monitor dashboard through the DataReel Reporting Agents for Linux and Windows (`--submit`), see [Dashboard](#dashboard-reporting-agent-hooks).
+The tools, the benchmarks, `sar_stats`, `sar_cpu_stats` and `dr_report.py` can also send their results to the DataReel System Monitor dashboard through the DataReel Reporting Agents for Linux and Windows (`--submit`), see [Dashboard](#dashboard-reporting-agent-hooks).
 
 Use the network tools and benchmarks only on networks and hosts you own or are allowed to test. The scan tools scan one /24 at most.
 
 ## Documentation
 
 The full documentation, with every option and command lines for Windows and Linux, is in [docs/](docs/README.md):
-[building and installing](docs/install.md), [file tools](docs/file-tools.md), [network tools](docs/network-tools.md), [benchmarks](docs/benchmarks.md), [sar CPU statistics](docs/sar-cpu-stats.md), [plots, reports and watch scripts](docs/plots-and-reports.md), [dashboard hooks](docs/dashboard-hooks.md) and a [quick reference](docs/quick-reference.md). The same pages are in `docs/html/` as searchable HTML (open `docs/html/index.html`), and each program folder has a README.md with its own part.
+[building and installing](docs/install.md), [file tools](docs/file-tools.md), [network tools](docs/network-tools.md), [benchmarks](docs/benchmarks.md), [sar reports](docs/sar-stats.md), [sar CPU statistics](docs/sar-cpu-stats.md), [plots, reports and watch scripts](docs/plots-and-reports.md), [dashboard hooks](docs/dashboard-hooks.md) and a [quick reference](docs/quick-reference.md). The same pages are in `docs/html/` as searchable HTML (open `docs/html/index.html`), and each program folder has a README.md with its own part.
 
 ## License
 
@@ -259,13 +260,14 @@ Runs multiply-add chains over a small array that stays in the CPU cache, in sing
 
 ### Plot data files and dr_plot.py
 
-Every benchmark takes `--datfile=fname` (disktest, cputest, memtest, flops, tcptest, udptest, mctest) and writes its results as a small INI file: the settings, the main result (`total`), one value per thread, client, receiver or phase, and a `[HOSTINFO]` section (host, date, compiler). `benchmarks/plot/dr_plot.py` (Python 3 with matplotlib) plots those files, `sar_cpu_stats --csv` output and `watch_mem_usage.sh` logs. It tells the kind from the contents:
+Every benchmark takes `--datfile=fname` (disktest, cputest, memtest, flops, tcptest, udptest, mctest) and writes its results as a small INI file: the settings, the main result (`total`), one value per thread, client, receiver or phase, and a `[HOSTINFO]` section (host, date, compiler). `benchmarks/plot/dr_plot.py` (Python 3 with matplotlib) plots those files, `sar_stats --csv` and `sar_cpu_stats --csv` output and `watch_mem_usage.sh` logs. It tells the kind from the contents:
 
 | Input | Plot |
 |---|---|
 | one benchmark `--datfile` | a bar per thread, client, receiver or phase, the total in the title; UDP and multicast also show the loss per client |
 | several files of one benchmark | one bar per run (host, date, threads or clients) for the main result: compare machines, builds or thread counts |
 | `disktest --datfile` | insert, find, delete and reinsert times for every 10% of the keys (`--averages` for milliseconds per key); several files compare the phase totals |
+| `sar_stats --csv` | every sar section: a chart per section and item (whole system first, then the busiest disks, interfaces ...), columns in panels by unit; `-o file.pdf` writes a page per chart, `-o file.png` a file per chart; `--section`, `--item`, `--items N` |
 | `sar_cpu_stats --csv` | CPU use over time, stacked (user, nice, system, irq + soft, iowait, steal), one panel per host, gaps left empty and bad samples marked in red; `--cpu N` for one CPU (with `--all-cpus`) |
 | `watch_mem_usage.sh` log | used memory over time |
 

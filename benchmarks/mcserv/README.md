@@ -1,6 +1,6 @@
 # mcserv
 
-Part of dr_utils 1.4. This file is made from [docs/benchmarks.md](../../docs/benchmarks.md#mcserv-and-mctest) by docs/make_docs.py: edit that page, not this file. All the documentation: [docs/](../../docs/README.md), or the searchable HTML in `docs/html/index.html`.
+Part of dr_utils 1.5. This file is made from [docs/benchmarks.md](../../docs/benchmarks.md#mcserv-and-mctest) by docs/make_docs.py: edit that page, not this file. All the documentation: [docs/](../../docs/README.md), or the searchable HTML in `docs/html/index.html`.
 
 Sizes take decimal suffixes (`1k` = 1000, `1m`, `1g`). The dashboard options (`--drsm`, `--submit`, `--now`, `--drra`, `--drra-config`) are on the [Dashboard](../../docs/dashboard-hooks.md) page.
 

@@ -32,7 +32,7 @@ The files are the same on Windows and Linux, so results from both plot and repor
 
 ## dr_plot.py
 
-Plots `--datfile` files, `sar_cpu_stats --csv` output and `watch_mem_usage.sh` logs. It tells the kind from the contents. Needs Python 3 and matplotlib.
+Plots `--datfile` files, `sar_stats --csv` and `sar_cpu_stats --csv` output and `watch_mem_usage.sh` logs. It tells the kind from the contents. Needs Python 3 and matplotlib.
 
 ```
 dr_plot.py [-h] [-o OUT] [--averages] [--cpu CPU] [--dpi DPI] files [files ...]
@@ -44,6 +44,9 @@ dr_plot.py [-h] [-o OUT] [--averages] [--cpu CPU] [--dpi DPI] files [files ...]
 | `-o OUT`, `--out OUT` | write this PNG file (without `-o` the plot opens in a window) |
 | `--averages` | disktest: milliseconds per key instead of seconds per 10% of the keys |
 | `--cpu CPU` | sar CSV: the CPU to plot (default `all`; needs `--csv --all-cpus` input) |
+| `--section ID,...` | sar_stats CSV: only these sections (`cpu,mem,disk` ...) |
+| `--item NAME,...` | sar_stats CSV: only these items (`all`, `eth0`, `sda` ...); every one is drawn |
+| `--items N` | sar_stats CSV: the busiest items drawn per section (default 6) |
 | `--dpi DPI` | PNG resolution |
 
 | Input | Plot |
@@ -51,6 +54,7 @@ dr_plot.py [-h] [-o OUT] [--averages] [--cpu CPU] [--dpi DPI] files [files ...]
 | one benchmark `--datfile` | a bar per thread, client, receiver or phase, the total in the title; UDP and multicast also show the loss per client |
 | several files of one benchmark | one bar per run (host, date, threads or clients) for the main result: compare machines, builds or thread counts |
 | `disktest --datfile` | insert, find, delete and reinsert times for every 10% of the keys; several files compare the phase totals |
+| `sar_stats --csv` | every sar section: a chart per section and item (the whole system first, then the busiest items), the columns split into panels by unit; CPU use stacked like kSar. `-o file.pdf` writes one page per chart, `-o file.png` one file per chart (`file_<section>_<item>.png`). See [sar_stats](sar-stats.md) |
 | `sar_cpu_stats --csv` | CPU use over time, stacked (user, nice, system, irq + soft, iowait, steal), one panel per host, gaps left empty and bad samples marked in red |
 | `watch_mem_usage.sh` log | used memory over time |
 
@@ -77,7 +81,7 @@ On a Linux host with no display, use `-o`.
 
 ## dr_report.py
 
-Builds one HTML report from a folder (or a list) of result files: `--datfile` files, `sar_cpu_stats --csv` files and `watch_mem_usage.sh` logs. The charts are inside the HTML file, so the one file can be mailed, archived or printed.
+Builds one HTML report from a folder (or a list) of result files: `--datfile` files, `sar_stats --csv` and `sar_cpu_stats --csv` files and `watch_mem_usage.sh` logs. The charts are inside the HTML file, so the one file can be mailed, archived or printed.
 
 ```
 dr_report.py [-h] -o OUT [--title TITLE] [--csv CSV] [--no-runs]
@@ -92,6 +96,9 @@ dr_report.py [-h] -o OUT [--title TITLE] [--csv CSV] [--no-runs]
 | `--title TITLE` | the report title (default "Benchmark report") |
 | `--csv CSV` | also write the summary table as CSV |
 | `--no-runs` | only the comparison charts, not one chart per run |
+| `--sar-section ID,...` | sar_stats CSV: only these sections |
+| `--sar-items N` | sar_stats CSV: charts of the busiest items per section (default 4) |
+| `--sar-rows N` | sar_stats CSV: items in the per-item table of a section (default 20) |
 | `--submit [ID]` | hand the report to the reporting agent, hook ID (default `dru_report`), see [Dashboard](dashboard-hooks.md) |
 | `--now` | with `--submit`, the agent sends within seconds |
 | `--drra DRRA` | agent program (default `drra`, or `%ProgramFiles%\DataReel\ReportingAgent\drra_svc.exe` on Windows) |

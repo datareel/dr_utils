@@ -8,6 +8,7 @@ dr_utils is a set of command line file tools, network tools, system benchmarks a
 | [File tools](file-tools.md) | `file_hours`, `file_purge`, `filetimes` |
 | [Network tools](network-tools.md) | `internet-test`, `pingscan`, `dnsscan`, `portscan`, `netpscan`, `arpscan`, `getmac` |
 | [Benchmarks](benchmarks.md) | `cputest`, `disktest`, `memtest`, `flops`, `tcpserv`/`tcptest`, `udpserv`/`udptest`, `mcserv`/`mctest` |
+| [sar reports, every section](sar-stats.md) | `sar_stats`: every section of sar -A reports (CPU, memory, swap, paging, I/O, disks, network, NFS, load, interrupts, power, file systems), kSar-style summaries, CSV and charts |
 | [sar CPU statistics](sar-cpu-stats.md) | `sar_cpu_stats`: averages, peaks, steal and iowait spikes, gaps, CSV |
 | [Plots, reports and watch scripts](plots-and-reports.md) | `--datfile` files, `dr_plot.py`, `dr_report.py`, `watch_system.sh`, `watch_mem.sh`, `watch_mem_usage.sh` |
 | [Dashboard: reporting agent hooks](dashboard-hooks.md) | `--drsm`, `--submit`, the DataReel Reporting Agents for Linux and Windows, DRSM setup, the daily sar job |

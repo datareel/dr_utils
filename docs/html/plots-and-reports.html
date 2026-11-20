@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Plots, reports, watch scripts - dr_utils 1.4</title>
+<title>Plots, reports, watch scripts - dr_utils 1.5</title>
 <link rel="stylesheet" href="dr_utils.css">
 </head>
 <body>
 <div class="wrap">
 <nav>
-<p class="title"><a href="index.html">dr_utils 1.4</a></p>
+<p class="title"><a href="index.html">dr_utils 1.5</a></p>
 <input id="q" type="search" placeholder="Search the docs ( / )" aria-label="Search the docs">
 <button id="menu-btn" type="button">Pages</button>
 <ul>
@@ -18,6 +18,7 @@
 <li><a href="file-tools.html">File tools</a></li>
 <li><a href="network-tools.html">Network tools</a></li>
 <li><a href="benchmarks.html">Benchmarks</a></li>
+<li><a href="sar-stats.html">sar reports (every section)</a></li>
 <li><a href="sar-cpu-stats.html">sar CPU statistics</a></li>
 <li><a href="plots-and-reports.html" class="cur">Plots, reports, watch scripts</a></li>
 <li><a href="dashboard-hooks.html">Dashboard hooks</a></li>
@@ -55,7 +56,7 @@ title=CPU Speed Benchmark
 <p><code>disktest --datfile</code> writes the older disk benchmark format (<code>[DISKBENCHMARK]</code>, <code>[PLOTINFO]</code>, <code>[HOSTINFO]</code>) with the time at every 10% of each phase.</p>
 <p>The files are the same on Windows and Linux, so results from both plot and report together.</p>
 <h2 id="dr_plotpy">dr_plot.py</h2>
-<p>Plots <code>--datfile</code> files, <code>sar_cpu_stats --csv</code> output and <code>watch_mem_usage.sh</code> logs. It tells the kind from the contents. Needs Python 3 and matplotlib.</p>
+<p>Plots <code>--datfile</code> files, <code>sar_stats --csv</code> and <code>sar_cpu_stats --csv</code> output and <code>watch_mem_usage.sh</code> logs. It tells the kind from the contents. Needs Python 3 and matplotlib.</p>
 <pre><code>dr_plot.py [-h] [-o OUT] [--averages] [--cpu CPU] [--dpi DPI] files [files ...]
 </code></pre>
 <table>
@@ -81,6 +82,18 @@ title=CPU Speed Benchmark
 <tr>
 <td><code>--cpu CPU</code></td>
 <td>sar CSV: the CPU to plot (default <code>all</code>; needs <code>--csv --all-cpus</code> input)</td>
+</tr>
+<tr>
+<td><code>--section ID,...</code></td>
+<td>sar_stats CSV: only these sections (<code>cpu,mem,disk</code> ...)</td>
+</tr>
+<tr>
+<td><code>--item NAME,...</code></td>
+<td>sar_stats CSV: only these items (<code>all</code>, <code>eth0</code>, <code>sda</code> ...); every one is drawn</td>
+</tr>
+<tr>
+<td><code>--items N</code></td>
+<td>sar_stats CSV: the busiest items drawn per section (default 6)</td>
 </tr>
 <tr>
 <td><code>--dpi DPI</code></td>
@@ -109,6 +122,10 @@ title=CPU Speed Benchmark
 <td>insert, find, delete and reinsert times for every 10% of the keys; several files compare the phase totals</td>
 </tr>
 <tr>
+<td><code>sar_stats --csv</code></td>
+<td>every sar section: a chart per section and item (the whole system first, then the busiest items), the columns split into panels by unit; CPU use stacked like kSar. <code>-o file.pdf</code> writes one page per chart, <code>-o file.png</code> one file per chart (<code>file_&lt;section&gt;_&lt;item&gt;.png</code>). See <a href="sar-stats.html">sar_stats</a></td>
+</tr>
+<tr>
 <td><code>sar_cpu_stats --csv</code></td>
 <td>CPU use over time, stacked (user, nice, system, irq + soft, iowait, steal), one panel per host, gaps left empty and bad samples marked in red</td>
 </tr>
@@ -133,7 +150,7 @@ py benchmarks\plot\dr_plot.py --averages --dpi 150 -o disk.png disk.dat
 </code></pre>
 <p>On a Linux host with no display, use <code>-o</code>.</p>
 <h2 id="dr_reportpy">dr_report.py</h2>
-<p>Builds one HTML report from a folder (or a list) of result files: <code>--datfile</code> files, <code>sar_cpu_stats --csv</code> files and <code>watch_mem_usage.sh</code> logs. The charts are inside the HTML file, so the one file can be mailed, archived or printed.</p>
+<p>Builds one HTML report from a folder (or a list) of result files: <code>--datfile</code> files, <code>sar_stats --csv</code> and <code>sar_cpu_stats --csv</code> files and <code>watch_mem_usage.sh</code> logs. The charts are inside the HTML file, so the one file can be mailed, archived or printed.</p>
 <pre><code>dr_report.py [-h] -o OUT [--title TITLE] [--csv CSV] [--no-runs]
              [--submit [ID]] [--now] [--drra DRRA] [--drra-config DRRA_CONFIG]
              inputs [inputs ...]
@@ -165,6 +182,18 @@ py benchmarks\plot\dr_plot.py --averages --dpi 150 -o disk.png disk.dat
 <tr>
 <td><code>--no-runs</code></td>
 <td>only the comparison charts, not one chart per run</td>
+</tr>
+<tr>
+<td><code>--sar-section ID,...</code></td>
+<td>sar_stats CSV: only these sections</td>
+</tr>
+<tr>
+<td><code>--sar-items N</code></td>
+<td>sar_stats CSV: charts of the busiest items per section (default 4)</td>
+</tr>
+<tr>
+<td><code>--sar-rows N</code></td>
+<td>sar_stats CSV: items in the per-item table of a section (default 20)</td>
 </tr>
 <tr>
 <td><code>--submit [ID]</code></td>
@@ -239,7 +268,7 @@ kill %1
 dr_report.py -o mem_report.html results
 </code></pre>
 <p>On Windows use Performance Monitor or <code>typeperf "\Memory\Committed Bytes" -si 2 -o mem.csv</code> for the same kind of record (the scripts read /proc, so they are Linux only).</p>
-<p class="foot">dr_utils 1.4 documentation, GNU LGPL 3 or later. Made from docs/plots-and-reports.md by docs/make_docs.py.</p>
+<p class="foot">dr_utils 1.5 documentation, GNU LGPL 3 or later. Made from docs/plots-and-reports.md by docs/make_docs.py.</p>
 </div>
 </main>
 </div>

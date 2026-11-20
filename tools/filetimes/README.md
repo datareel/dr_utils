@@ -1,6 +1,6 @@
 # filetimes
 
-Part of dr_utils 1.4. This file is made from [docs/file-tools.md](../../docs/file-tools.md#filetimes) by docs/make_docs.py: edit that page, not this file. All the documentation: [docs/](../../docs/README.md), or the searchable HTML in `docs/html/index.html`.
+Part of dr_utils 1.5. This file is made from [docs/file-tools.md](../../docs/file-tools.md#filetimes) by docs/make_docs.py: edit that page, not this file. All the documentation: [docs/](../../docs/README.md), or the searchable HTML in `docs/html/index.html`.
 
 Shows a file's access, modification and creation times in local time and GMT, and its age. With several files it can print just the newest or the oldest.
 

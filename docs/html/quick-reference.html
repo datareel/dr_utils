@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Quick reference - dr_utils 1.4</title>
+<title>Quick reference - dr_utils 1.5</title>
 <link rel="stylesheet" href="dr_utils.css">
 </head>
 <body>
 <div class="wrap">
 <nav>
-<p class="title"><a href="index.html">dr_utils 1.4</a></p>
+<p class="title"><a href="index.html">dr_utils 1.5</a></p>
 <input id="q" type="search" placeholder="Search the docs ( / )" aria-label="Search the docs">
 <button id="menu-btn" type="button">Pages</button>
 <ul>
@@ -18,6 +18,7 @@
 <li><a href="file-tools.html">File tools</a></li>
 <li><a href="network-tools.html">Network tools</a></li>
 <li><a href="benchmarks.html">Benchmarks</a></li>
+<li><a href="sar-stats.html">sar reports (every section)</a></li>
 <li><a href="sar-cpu-stats.html">sar CPU statistics</a></li>
 <li><a href="plots-and-reports.html">Plots, reports, watch scripts</a></li>
 <li><a href="dashboard-hooks.html">Dashboard hooks</a></li>
@@ -147,7 +148,7 @@
 </table>
 <p>Exit status: <code>tcptest</code> 0 if every client finished; <code>udptest</code> 0 if every client got a report; <code>mctest</code> 0 if every receiver saw the end of a run; 1 otherwise.</p>
 <p>Sizes: <code>1k</code> = 1000, <code>1m</code> = 10^6, <code>1g</code> = 10^9. Rates (<code>-r</code>) are bits a second.</p>
-<h2 id="sar-reports-details">sar reports (<a href="sar-cpu-stats.html">details</a>)</h2>
+<h2 id="sar-reports-sar_stats-sar_cpu_stats">sar reports (<a href="sar-stats.html">sar_stats</a>, <a href="sar-cpu-stats.html">sar_cpu_stats</a>)</h2>
 <table>
 <thead>
 <tr>
@@ -156,6 +157,10 @@
 </tr>
 </thead>
 <tbody>
+<tr>
+<td><code>sar_stats [--list] [--csv] [--section=ID,...] [--item=NAME,...] [--items=N]</code> <strong>[D]</strong> <code>sar_file ...</code></td>
+<td>0; 1 error or no samples</td>
+</tr>
 <tr>
 <td><code>sar_cpu_stats [--csv [--all-cpus]] [--steal=PCT] [--iowait=PCT] [--list=N] [--alarm]</code> <strong>[D]</strong> <code>sar_file ...</code></td>
 <td>0; 1 error or no samples; 3 with <code>--alarm</code> and findings</td>
@@ -173,11 +178,11 @@
 <tbody>
 <tr>
 <td><code>benchmarks/plot/dr_plot.py</code></td>
-<td><code>[-o OUT] [--averages] [--cpu CPU] [--dpi DPI] files ...</code></td>
+<td><code>[-o OUT] [--averages] [--cpu CPU] [--section ID,...] [--item NAME,...] [--items N] [--dpi DPI] files ...</code></td>
 </tr>
 <tr>
 <td><code>benchmarks/plot/dr_report.py</code></td>
-<td><code>-o OUT [--title T] [--csv CSV] [--no-runs] [--submit [ID]] [--now] [--drra P] [--drra-config INI] inputs ...</code></td>
+<td><code>-o OUT [--title T] [--csv CSV] [--no-runs] [--sar-section ID,...] [--sar-items N] [--sar-rows N] [--submit [ID]] [--now] [--drra P] [--drra-config INI] inputs ...</code></td>
 </tr>
 <tr>
 <td><code>benchmarks/scripts/watch_system.sh</code></td>
@@ -193,7 +198,11 @@
 </tr>
 <tr>
 <td><code>hooks/linux/install_hooks.sh</code></td>
-<td><code>[--sar-cron] [--apply] all | &lt;id&gt; ...</code> (dry run without <code>--apply</code>)</td>
+<td><code>[--sar-cron] [--sar-all-cron] [--apply] all | &lt;id&gt; ...</code> (dry run without <code>--apply</code>)</td>
+</tr>
+<tr>
+<td><code>hooks/linux/dru_sar_stats.sh</code></td>
+<td>the same options, every sar section (<code>sar -A</code>, <code>sar_stats</code>)</td>
 </tr>
 <tr>
 <td><code>hooks/linux/dru_sar_cpu_stats.sh</code></td>
@@ -236,7 +245,7 @@
 </tr>
 </tbody>
 </table>
-<p class="foot">dr_utils 1.4 documentation, GNU LGPL 3 or later. Made from docs/quick-reference.md by docs/make_docs.py.</p>
+<p class="foot">dr_utils 1.5 documentation, GNU LGPL 3 or later. Made from docs/quick-reference.md by docs/make_docs.py.</p>
 </div>
 </main>
 </div>

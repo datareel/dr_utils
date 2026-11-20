@@ -43,22 +43,24 @@ Exit status: `tcptest` 0 if every client finished; `udptest` 0 if every client g
 
 Sizes: `1k` = 1000, `1m` = 10^6, `1g` = 10^9. Rates (`-r`) are bits a second.
 
-## sar reports ([details](sar-cpu-stats.md))
+## sar reports ([sar_stats](sar-stats.md), [sar_cpu_stats](sar-cpu-stats.md))
 
 | Program and options | Exit status |
 |---|---|
+| `sar_stats [--list] [--csv] [--section=ID,...] [--item=NAME,...] [--items=N]` **[D]** `sar_file ...` | 0; 1 error or no samples |
 | `sar_cpu_stats [--csv [--all-cpus]] [--steal=PCT] [--iowait=PCT] [--list=N] [--alarm]` **[D]** `sar_file ...` | 0; 1 error or no samples; 3 with `--alarm` and findings |
 
 ## Scripts ([plots and reports](plots-and-reports.md), [dashboard](dashboard-hooks.md))
 
 | Script | Options |
 |---|---|
-| `benchmarks/plot/dr_plot.py` | `[-o OUT] [--averages] [--cpu CPU] [--dpi DPI] files ...` |
-| `benchmarks/plot/dr_report.py` | `-o OUT [--title T] [--csv CSV] [--no-runs] [--submit [ID]] [--now] [--drra P] [--drra-config INI] inputs ...` |
+| `benchmarks/plot/dr_plot.py` | `[-o OUT] [--averages] [--cpu CPU] [--section ID,...] [--item NAME,...] [--items N] [--dpi DPI] files ...` |
+| `benchmarks/plot/dr_report.py` | `-o OUT [--title T] [--csv CSV] [--no-runs] [--sar-section ID,...] [--sar-items N] [--sar-rows N] [--submit [ID]] [--now] [--drra P] [--drra-config INI] inputs ...` |
 | `benchmarks/scripts/watch_system.sh` | `[-i sec] [-n count] [STATSONLY]` (Linux) |
 | `benchmarks/scripts/watch_mem.sh` | `[-i sec] [-n count] [STATSONLY]` (Linux) |
 | `benchmarks/scripts/watch_mem_usage.sh` | `[-i sec] [-n count] [STATSONLY]` (Linux) |
-| `hooks/linux/install_hooks.sh` | `[--sar-cron] [--apply] all \| <id> ...` (dry run without `--apply`) |
+| `hooks/linux/install_hooks.sh` | `[--sar-cron] [--sar-all-cron] [--apply] all \| <id> ...` (dry run without `--apply`) |
+| `hooks/linux/dru_sar_stats.sh` | the same options, every sar section (`sar -A`, `sar_stats`) |
 | `hooks/linux/dru_sar_cpu_stats.sh` | `[--day=yesterday\|today\|YYYY-MM-DD] [--sa-dir=DIR] [--now] [--print] [sar_cpu_stats options]` |
 | `hooks/windows/install_hooks.ps1` | `all \| <id> ... [-Apply]` (dry run without `-Apply`) |
 | `build.sh` / `build.cmd` | `[clean]`, with `DATAREEL_DIR` set (and `ZLIB_DIR` on Windows) |

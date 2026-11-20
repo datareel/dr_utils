@@ -1,6 +1,6 @@
 # sar_cpu_stats
 
-Part of dr_utils 1.4. This file is made from [docs/sar-cpu-stats.md](../../docs/sar-cpu-stats.md) by docs/make_docs.py: edit that page, not this file. All the documentation: [docs/](../../docs/README.md), or the searchable HTML in `docs/html/index.html`.
+Part of dr_utils 1.5. This file is made from [docs/sar-cpu-stats.md](../../docs/sar-cpu-stats.md) by docs/make_docs.py: edit that page, not this file. All the documentation: [docs/](../../docs/README.md), or the searchable HTML in `docs/html/index.html`.
 
 Reads sar text reports and prints CPU use: averages and peaks, steal and iowait spikes, gaps in the data and impossible samples. With `--csv` it writes every sample for plotting. It is based on work from the 2018 system_stats_analysis_tool `read_cpu_stats`.
 

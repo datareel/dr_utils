@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Hook files reference - dr_utils 1.4</title>
+<title>Hook files reference - dr_utils 1.5</title>
 <link rel="stylesheet" href="dr_utils.css">
 </head>
 <body>
 <div class="wrap">
 <nav>
-<p class="title"><a href="index.html">dr_utils 1.4</a></p>
+<p class="title"><a href="index.html">dr_utils 1.5</a></p>
 <input id="q" type="search" placeholder="Search the docs ( / )" aria-label="Search the docs">
 <button id="menu-btn" type="button">Pages</button>
 <ul>
@@ -18,6 +18,7 @@
 <li><a href="file-tools.html">File tools</a></li>
 <li><a href="network-tools.html">Network tools</a></li>
 <li><a href="benchmarks.html">Benchmarks</a></li>
+<li><a href="sar-stats.html">sar reports (every section)</a></li>
 <li><a href="sar-cpu-stats.html">sar CPU statistics</a></li>
 <li><a href="plots-and-reports.html">Plots, reports, watch scripts</a></li>
 <li><a href="dashboard-hooks.html">Dashboard hooks</a></li>
@@ -90,6 +91,12 @@
 <td><code>dru_sar_cpu_stats</code></td>
 <td><code>busy_avg</code>, <code>&lt;field&gt;_avg</code> and <code>&lt;field&gt;_peak</code> (user, system, iowait, steal ...), <code>idle_min</code>, <code>steal_spikes</code>, <code>iowait_spikes</code>, <code>gaps</code>, <code>bad_samples</code>, <code>files_failed</code></td>
 <td>one row per sar file</td>
+</tr>
+<tr>
+<td><code>sar_stats</code></td>
+<td><code>dru_sar_stats</code></td>
+<td><code>&lt;section&gt;_&lt;column&gt;_avg</code> and <code>_max</code> of the whole system (<code>cpu_pct_idle_avg</code>, <code>mem_pct_memused_max</code>, <code>queue_ldavg_1_max</code> ...), <code>&lt;section&gt;_&lt;column&gt;_max</code> over the items of the other sections (<code>disk_pct_util_max</code>, <code>net_dev_rxkb_s_max</code>, <code>fs_pct_fsused_max</code> ...), <code>&lt;section&gt;_items</code>, <code>sections</code>, <code>files_failed</code></td>
+<td>one row per sar section</td>
 </tr>
 <tr>
 <td><code>file_hours</code></td>
@@ -214,6 +221,7 @@ portscan -n www.example.com 22,80,443 --submit
 </ol>
 <h2 id="daily-sar-cpu-use-linux">Daily sar CPU use (Linux)</h2>
 <p><code>hooks/linux/dru_sar_cpu_stats.sh</code> makes the sar text report of one day (yesterday by default) with <code>LC_ALL=C sar -u -f /var/log/sa/saDD</code> and runs <code>sar_cpu_stats --submit</code> on it. <code>--print</code> shows the lines instead of submitting them, <code>--day=YYYY-MM-DD</code> picks another day, and other options go to <code>sar_cpu_stats</code> (for example <code>--iowait=30</code>).</p>
+<p><code>hooks/linux/dru_sar_stats.sh</code> does the same with the whole report (<code>sar -A</code>) and <code>sar_stats --submit</code> (hook <code>dru_sar_stats</code>), and <code>sudo hooks/linux/install_hooks.sh --sar-all-cron --apply</code> installs it with <code>/etc/cron.d/dru_sar_stats</code> (00:25 every day). Both jobs can run.</p>
 <p><code>sudo hooks/linux/install_hooks.sh --sar-cron --apply</code> installs <code>bin/sar_cpu_stats</code> and the script in <code>/usr/local/libexec/dr_utils/</code>, the hook file, and <code>/etc/cron.d/dru_sar_cpu_stats</code> (00:20 every day). The manifest warns when the data is more than 30 hours old, so a stopped cron job shows.</p>
 <h2 id="alert-rules">Alert rules</h2>
 <p>The manifests have rules only where a limit means the same thing everywhere:</p>
@@ -305,12 +313,16 @@ uploads_dru_cputest_MAX_AGE_HOURS=26
 <td>Daily sar CPU use to the dashboard</td>
 </tr>
 <tr>
+<td><code>linux/dru_sar_stats.sh</code>, <code>.cron</code></td>
+<td>Daily sar report, every section, to the dashboard</td>
+</tr>
+<tr>
 <td><code>windows/install_hooks.ps1</code></td>
 <td>Installs hook files on a Windows agent host, dry run by default</td>
 </tr>
 </tbody>
 </table>
-<p class="foot">dr_utils 1.4 documentation, GNU LGPL 3 or later. Made from hooks/README.md by docs/make_docs.py.</p>
+<p class="foot">dr_utils 1.5 documentation, GNU LGPL 3 or later. Made from hooks/README.md by docs/make_docs.py.</p>
 </div>
 </main>
 </div>
