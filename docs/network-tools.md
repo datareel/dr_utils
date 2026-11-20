@@ -325,7 +325,7 @@ getmac printer.example.com eth0
 mac=$(getmac 192.0.2.12 | sed -n 's/^MAC Address: //p')
 ```
 
-Windows has its own `getmac.exe` that lists the local adapters, and it comes first on the PATH. Run this one by its full path (or install it under another name, see [Building and installing](install.md#installing-on-windows)):
+Windows has its own `getmac.exe` that lists the local adapters, and it comes first on the PATH. Run this one by its full path (or install it under another name, see [Building and installing](install.md#binary-packages)):
 
 ```
 "C:\Program Files\dr_utils\getmac.exe" 192.0.2.12

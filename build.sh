@@ -18,6 +18,14 @@ if [ ! -f "$DATAREEL_DIR/lib/libdatareel.a" ]; then
   echo "$DATAREEL_DIR/lib/libdatareel.a not found: build DataReel first (cd \$DATAREEL_DIR/build && make && make install)" >&2
   exit 2
 fi
+# make and DataReel's linux.env set no optimization: -O2 unless CXXFLAGS
+# is set (build the DataReel library with the same CXXFLAGS). GCC 4.8
+# (RHEL 7) also needs C++11 turned on.
+if [ -z "${CXXFLAGS:-}" ]; then
+  CXXFLAGS="-O2"
+  case "$(g++ -dumpversion 2>/dev/null)" in 4.*) CXXFLAGS="${CXXFLAGS} -std=gnu++11" ;; esac
+  export CXXFLAGS
+fi
 TOOLS="tools/file_hours tools/file_purge tools/filetimes tools/internet-test tools/pingscan tools/dnsscan tools/portscan tools/netpscan tools/arpscan tools/getmac"
 TOOLS="$TOOLS benchmarks/cputest benchmarks/disktest benchmarks/memtest benchmarks/tcpserv benchmarks/tcptest benchmarks/udpserv benchmarks/udptest benchmarks/mcserv benchmarks/mctest benchmarks/flops system_stats/sar_cpu_stats"
 fail=0

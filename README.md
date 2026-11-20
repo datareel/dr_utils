@@ -46,22 +46,27 @@ The full documentation, with every option and command lines for Windows and Linu
 
 GNU Lesser General Public License version 3 or later, the same as DataReel 6.4.2 and later. See [LICENSE](LICENSE). Each file says which original program it is based on.
 
+## Binary packages
+
+Each release has Linux binaries for RHEL 7, 8, 9 and 10 (`dr_utils_<v>_rhel_7_8_9_10_binaries.tar.gz`, installed with `install_dr_utils.sh`) and Windows 64-bit and 32-bit binaries (`dr_utils_<v>_windows_binaries.zip`, `dr_utils_<v>_windows_32bit_binaries.zip`, installed with `install_dr_utils.ps1`). Both installers are a dry run until you add `--install` or `-Install`. See [Binary packages](docs/install.md#binary-packages). `release/package.sh` makes the packages from the builds.
+
 ## Building
 
 You need a DataReel 6.4.1 source tree with its library built. Use the same build settings for the library and for dr_utils.
 
-### Linux (RHEL 8, 9, 10 and other distributions with GCC)
+### Linux (RHEL 7, 8, 9, 10 and other distributions with GCC)
 
 ```
+export CXXFLAGS="-O2"                                      # RHEL 7: "-O2 -std=gnu++11"
 cd /path/to/datareel-6.4.1/build && make && make install   # lib/libdatareel.a
 cd /path/to/dr_utils
 DATAREEL_DIR=/path/to/datareel-6.4.1 ./build.sh            # programs in bin/
 tests/run_tests.sh
 ```
 
-cputest needs zlib (zlib-devel). DataReel builds with OpenSSL by default (openssl-devel). Use `USE_OPEN_SSL=NO` for both the library and dr_utils on a system without it. One tool: `cd tools/portscan && make DATAREEL_DIR=...`.
+cputest needs zlib (zlib-devel). DataReel builds with OpenSSL by default (openssl-devel). dr_utils uses no TLS, so `USE_OPEN_SSL=NO` for both the library and dr_utils works everywhere (the release binaries are built that way). One tool: `cd tools/portscan && make DATAREEL_DIR=...`.
 
-### Windows (Visual Studio 2022 or 2026, x64)
+### Windows (Visual Studio 2022 or 2026, x64 or x86)
 
 Build the DataReel library in `%DATAREEL_DIR%\winslib` (gxcode64.lib, 64-bit release). Then, from an x64 Native Tools command prompt:
 
@@ -73,7 +78,7 @@ build.cmd
 powershell -ExecutionPolicy Bypass -File tests\run_tests.ps1
 ```
 
-`build.cmd` builds 64-bit release programs (`64BITCFG=1 FINAL=1`) into `bin\`. One tool: `cd tools\portscan` and `nmake -f msvc.mak`. For cputest, build zlib with the static runtime so it matches DataReel's /MT: in the zlib source folder, `nmake -f win32\Makefile.msc LOC=-MT zlib.lib`. The programs link `setargv.obj`, so wildcards such as `*.log` work in cmd.exe.
+`build.cmd` builds 64-bit release programs (`64BITCFG=1 FINAL=1`) into `bin\`; for 32-bit programs use an x86 Native Tools prompt, a 32-bit DataReel library (gxcode32.lib) and zlib, and `set 64BITCFG=0` first. One tool: `cd tools\portscan` and `nmake -f msvc.mak`. For cputest, build zlib with the static runtime so it matches DataReel's /MT: in the zlib source folder, `nmake -f win32\Makefile.msc LOC=-MT zlib.lib`. The programs link `setargv.obj`, so wildcards such as `*.log` work in cmd.exe.
 
 ## Privileges
 
@@ -339,6 +344,7 @@ Reads sar text reports (`LC_ALL=C sar -u -f /var/log/sa/saDD > file.txt`, or `sa
 | `tests/data/sar/` | short sar reports for the tests |
 | `common/` | `drnet.h/.cpp` (ping, TCP connect with a timeout, DNS, ARP, ranges, services files), `drsock.h/.cpp` (benchmark sockets and wire formats), `drbench.h` (timers, sizes, pacing, plot files), `drhook.h` (DRSM lines and the agent hand-off) and `drutil.h` (file ages) |
 | `hooks/` | reporting agent upload hook files, DRSM manifests and install scripts for the dashboard output |
+| `release/` | `install_dr_utils.sh`, `install_dr_utils.ps1`, the package READMEs and `package.sh`, which makes the release packages |
 | `env/` | `linux.mak` and `msvc.mak`, the build settings on top of DataReel's |
 | `tests/` | `run_tests.sh` (Linux), `run_tests.ps1` (Windows) and `hooks_e2e_test.sh` (dashboard output through a real agent and DRSM probe) |
 

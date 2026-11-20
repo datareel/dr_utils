@@ -93,12 +93,17 @@ for id in "${IDS[@]}"; do
 done
 
 if [ "${SAR}" == "1" ]; then
-    if [ ! -x "${TOP}/bin/sar_cpu_stats" ]; then
-	echo "ERROR - ${TOP}/bin/sar_cpu_stats is missing: run ./build.sh first" >&2
+    # bin/ of a source build, else the installed program (install_dr_utils.sh)
+    SARPROG="${TOP}/bin/sar_cpu_stats"
+    # (sudo's PATH on RHEL has no /usr/local/bin, so look there too)
+    [ -x "${SARPROG}" ] || SARPROG=$(command -v sar_cpu_stats 2>/dev/null || true)
+    [ -n "${SARPROG}" ] || { [ -x /usr/local/bin/sar_cpu_stats ] && SARPROG=/usr/local/bin/sar_cpu_stats; }
+    if [ -z "${SARPROG}" ] || [ ! -x "${SARPROG}" ]; then
+	echo "ERROR - sar_cpu_stats not found: run ./build.sh, or install the binary package with install_dr_utils.sh" >&2
 	exit 1
     fi
     command -v sar > /dev/null || echo "WARNING - sar is not installed (sysstat)"
-    run install -D -o root -g root -m 0755 "${TOP}/bin/sar_cpu_stats" "${LIBEXEC}/sar_cpu_stats"
+    run install -D -o root -g root -m 0755 "${SARPROG}" "${LIBEXEC}/sar_cpu_stats"
     run install -D -o root -g root -m 0755 "${HERE}/dru_sar_cpu_stats.sh" "${LIBEXEC}/dru_sar_cpu_stats.sh"
     run install -o root -g root -m 0644 "${HERE}/dru_sar_cpu_stats.cron" /etc/cron.d/dru_sar_cpu_stats
 fi

@@ -106,7 +106,8 @@ else
   PORT=$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1]); s.close()')
   CLOSED=$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1]); s.close()')
   mkdir -p www && echo hello > www/index.html
-  python3 -m http.server "$PORT" --bind 127.0.0.1 --directory www > http.log 2>&1 &
+  # (cd www): Python 3.6 (RHEL 7 and 8) has no --directory
+  (cd www && exec python3 -m http.server "$PORT" --bind 127.0.0.1) > http.log 2>&1 &
   HTTP_PID=$!
   for i in $(seq 1 50); do
     python3 -c "import socket; socket.create_connection(('127.0.0.1',$PORT),1)" 2>/dev/null && break

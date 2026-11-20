@@ -2,7 +2,8 @@
 rem Build every dr_utils tool on Windows against DataReel 6.4.1.
 rem Run from a Visual Studio x64 Native Tools prompt:
 rem   set DATAREEL_DIR=C:\path\to\datareel-6.4.1
-rem   build.cmd          build (64-bit release, 64BITCFG=1 FINAL=1)
+rem   build.cmd          build (64-bit release, 64BITCFG=1 FINAL=1;
+rem                      set 64BITCFG=0 in an x86 prompt for 32-bit)
 rem   build.cmd clean    remove objects and programs
 rem The DataReel library must be built first in %DATAREEL_DIR%\winslib.
 rem cputest needs zlib: set ZLIB_DIR to a folder with zlib.h and zlib.lib.
